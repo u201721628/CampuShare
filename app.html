@@ -328,6 +328,23 @@
         <ul class="deal-list" id="history-list"></ul>
       </div>
     </section>
+
+    <!-- ===================== V6 Chat (HU038, HU039, HU040) ===================== -->
+    <section class="view container" id="view-chat" data-view="chat" aria-labelledby="chat-title" hidden>
+      <h1 class="visually-hidden" id="chat-title">Chat</h1>
+      <div class="chat" id="chat">
+        <aside class="chat__list" aria-labelledby="conversations-title">
+          <h2 class="chat__list-title" id="conversations-title">Conversaciones</h2>
+          <label class="chat__search">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-search"></use></svg>
+            <span class="visually-hidden">Buscar conversación</span>
+            <input type="search" id="conversation-filter" placeholder="Buscar conversación">
+          </label>
+          <ul class="conversation-list" id="conversation-list"></ul>
+        </aside>
+        <section class="chat__thread" id="chat-thread" aria-live="off"></section>
+      </div>
+    </section>
   </main>
 
   <!-- Mobile tab bar -->

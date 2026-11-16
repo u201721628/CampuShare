@@ -1458,6 +1458,242 @@
     $("#return-form").addEventListener("submit", submitReturn);
   }
 
+/* ======================================================================
+     9. V6 Chat (HU038, HU039, HU040) - in-memory conversation
+     ====================================================================== */
+  const PHONE_PATTERN = /(\+?51[\s-]?)?9\d{2}[\s-]?\d{3}[\s-]?\d{3}|\d{7,}/;
+
+  function lastMessage(conversation) {
+    return conversation.messages[conversation.messages.length - 1];
+  }
+
+  function updateUnreadBadges() {
+    const total = state.conversations.reduce(function (sum, c) {
+      return sum + c.unread;
+    }, 0);
+    $$("[data-unread-count]").forEach(function (badge) {
+      badge.textContent = total ? String(total) : "";
+      badge.hidden = total === 0;
+    });
+  }
+
+  function renderConversations() {
+    const filter = normalize($("#conversation-filter").value);
+    const list = state.conversations.slice().sort(function (a, b) {
+      return lastMessage(b).time - lastMessage(a).time;
+    }).filter(function (c) {
+      return !filter || normalize(users[c.userId].name + " " + material(c.materialId).title).indexOf(filter) !== -1;
+    });
+    const container = $("#conversation-list");
+    if (state.conversations.length === 0) {
+      container.innerHTML = '<li class="empty-state">Aún no tienes conversaciones.<br><a class="btn btn--primary btn--sm" href="#catalog">Buscar material</a></li>';
+    } else if (list.length === 0) {
+      container.innerHTML = '<li class="empty-state">Ninguna conversación coincide con tu búsqueda.</li>';
+    } else {
+      container.innerHTML = list.map(function (c) {
+        const user = users[c.userId];
+        const last = lastMessage(c);
+        const blocked = state.blocked[c.userId];
+        return "<li><button class=\"conversation" + (c.unread ? " conversation--unread" : "") + (blocked ? " conversation--blocked" : "") + '" type="button" data-conversation="' + c.id + '"' +
+          (state.activeConversation === c.id ? ' aria-current="true"' : "") + ">" +
+          '<span class="avatar" aria-hidden="true">' + user.initials + "</span>" +
+          '<span class="conversation__body"><span class="conversation__top"><span class="conversation__name">' + escapeHtml(user.name) + "</span>" +
+          '<span class="conversation__time">' + relativeTime(last.time) + "</span></span>" +
+          '<span class="conversation__last"><span>' + (blocked ? "Usuario bloqueado" : (last.from === "me" ? "Tú: " : "") + escapeHtml(last.text)) + "</span>" +
+          (c.unread ? '<span class="count-badge" aria-label="' + plural(c.unread, "mensaje sin leer", "mensajes sin leer") + '">' + c.unread + "</span>" : "") + "</span></span></button></li>";
+      }).join("");
+    }
+    updateUnreadBadges();
+  }
+
+  function messageHtml(message) {
+    if (message.from === "system") {
+      return '<p class="message message--system">' + escapeHtml(message.text) + "</p>";
+    }
+    const me = message.from === "me";
+    return '<div class="message message--' + (me ? "me" : "them") + '"><p class="message__bubble">' + escapeHtml(message.text) + "</p>" +
+      '<time datetime="' + message.time.toISOString() + '">' + formatTime(message.time) + (me ? " ✓✓" : "") + "</time></div>";
+  }
+
+  function renderThread(prefill) {
+    const thread = $("#chat-thread");
+    const chat = $("#chat");
+    const conversation = state.conversations.find(function (c) { return c.id === state.activeConversation; });
+    if (!conversation) {
+      chat.classList.remove("is-thread-open");
+      thread.innerHTML = '<div class="thread-empty"><div>' + icon("chat") + "<p>Elige una conversación para ver los mensajes.</p></div></div>";
+      return;
+    }
+    chat.classList.add("is-thread-open");
+    const user = users[conversation.userId];
+    const item = material(conversation.materialId);
+    const blocked = state.blocked[conversation.userId];
+    thread.innerHTML =
+      '<header class="thread__header">' +
+        '<button class="icon-btn thread__back" type="button" data-back aria-label="Volver a conversaciones">' + icon("back") + "</button>" +
+        '<span class="avatar" aria-hidden="true">' + user.initials + "</span>" +
+        '<div class="thread__who"><h2 class="thread__name">' + escapeHtml(user.name) + "</h2>" +
+        '<p class="thread__context">' + escapeHtml(item.title) + " · " + DATA.statusLabel[item.status] + "</p></div>" +
+        '<button class="icon-btn" type="button" data-profile="' + user.id + '" aria-label="Ver reputación de ' + escapeHtml(user.name) + '">' + icon("user") + "</button>" +
+        '<button class="icon-btn" type="button" data-report-user="' + user.id + '" aria-label="Reportar o bloquear a ' + escapeHtml(user.name) + '">' + icon("flag") + "</button>" +
+      "</header>" +
+      '<p class="thread__safety">' + icon("shield") + "Coordina aquí sin compartir tu número. Entrega solo en puntos seguros del campus.</p>" +
+      '<div class="thread__messages" id="thread-messages" role="log" aria-live="polite" aria-label="Mensajes con ' + escapeHtml(user.name) + '">' +
+        conversation.messages.map(messageHtml).join("") + "</div>" +
+      (blocked
+        ? '<p class="notice notice--error" style="margin:1rem">' + icon("block", "notice__icon") + "Bloqueaste a este usuario. No puede escribirte ni ver tus publicaciones.</p>"
+        : '<form class="composer" id="composer" novalidate>' +
+            '<div class="composer__field"><label class="visually-hidden" for="composer-input">Escribe un mensaje para ' + escapeHtml(user.name) + "</label>" +
+            '<textarea id="composer-input" rows="1" placeholder="Escribe un mensaje…" maxlength="500" aria-describedby="composer-error"></textarea></div>' +
+            '<button class="composer__send" type="submit" aria-label="Enviar mensaje">' + icon("send") + "</button></form>" +
+          '<p class="composer__error" id="composer-error" aria-live="assertive"></p>');
+    const messages = $("#thread-messages");
+    messages.scrollTop = messages.scrollHeight;
+    const input = $("#composer-input");
+    if (input) {
+      if (prefill) {
+        conversation.draft = prefill;
+      }
+      input.value = conversation.draft || "";
+      input.addEventListener("input", function () {
+        conversation.draft = input.value;
+      });
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          $("#composer").requestSubmit();
+        }
+      });
+      $("#composer").addEventListener("submit", function (event) {
+        event.preventDefault();
+        sendMessage(conversation);
+      });
+      if (prefill) {
+        input.focus();
+      }
+    }
+  }
+
+  function openConversation(id, prefill) {
+    state.activeConversation = id;
+    const conversation = state.conversations.find(function (c) { return c.id === id; });
+    conversation.unread = 0;
+    renderConversations();
+    renderThread(prefill);
+  }
+
+  function autoReply(text, conversation) {
+    const t = normalize(text);
+    const item = material(conversation.materialId);
+    if (/ampliacion|mas tiempo|unos dias|plazo/.test(t)) {
+      return "Sí, sin problema. Te doy una semana más, solo avísame cuando lo devuelvas.";
+    }
+    if (/disponible|sigue/.test(t)) {
+      return "¡Hola! Sí, “" + item.title + "” sigue disponible. ¿Para qué fechas lo necesitas?";
+    }
+    if (/hora|cuando|donde|punto/.test(t)) {
+      return "Podemos vernos en " + item.point + " en la franja que acordamos. ¿Te parece?";
+    }
+    if (/gracias/.test(t)) {
+      return "¡De nada! Para eso estamos 🙌";
+    }
+    if (/codigo|qr/.test(t)) {
+      return "Sí, te muestro el código en la app cuando nos veamos.";
+    }
+    const generic = ["Perfecto, quedamos así.", "¡Genial! Te escribo cuando esté en el campus.", "Dale, cualquier cosa me avisas por aquí."];
+    return generic[conversation.messages.length % generic.length];
+  }
+
+  function sendMessage(conversation) {
+    const input = $("#composer-input");
+    const error = $("#composer-error");
+    const text = input.value.trim();
+    error.textContent = "";
+    if (!text) {
+      error.textContent = "Escribe un mensaje antes de enviarlo.";
+      input.focus();
+      return;
+    }
+    // HU039: never reveal phone numbers
+    if (PHONE_PATTERN.test(text)) {
+      error.textContent = "Por tu seguridad no compartas números de teléfono. Coordina todo por este chat.";
+      input.focus();
+      return;
+    }
+    conversation.messages.push({ from: "me", text: text, time: new Date() });
+    input.value = "";
+    conversation.draft = "";
+    renderConversations();
+    $("#thread-messages").insertAdjacentHTML("beforeend", messageHtml(lastMessage(conversation)));
+    const messages = $("#thread-messages");
+    const typing = document.createElement("div");
+    typing.className = "message message--them";
+    typing.innerHTML = '<span class="typing" aria-label="' + escapeHtml(users[conversation.userId].name) + ' está escribiendo"><span></span><span></span><span></span></span>';
+    messages.appendChild(typing);
+    messages.scrollTop = messages.scrollHeight;
+    input.focus();
+
+    setTimeout(function () {
+      typing.remove();
+      if (state.blocked[conversation.userId]) {
+        return;
+      }
+      conversation.messages.push({ from: "them", text: autoReply(text, conversation), time: new Date() });
+      const viewingThread = state.activeConversation === conversation.id && currentView() === "chat";
+      if (viewingThread) {
+        $("#thread-messages").insertAdjacentHTML("beforeend", messageHtml(lastMessage(conversation)));
+        $("#thread-messages").scrollTop = $("#thread-messages").scrollHeight;
+      } else {
+        conversation.unread += 1;
+        addNotification(users[conversation.userId].name + " te respondió: “" + lastMessage(conversation).text + "”", "info", "chat");
+      }
+      renderConversations();
+    }, 1600 + Math.random() * 900);
+  }
+
+  // HU038: start (or reuse) a conversation linked to a material
+  function startConversation(materialId, userId, prefill) {
+    const item = material(materialId);
+    const otherId = userId || item.ownerId;
+    let conversation = state.conversations.find(function (c) {
+      return c.userId === otherId && c.materialId === materialId;
+    });
+    if (!conversation) {
+      conversation = { id: uid("c"), userId: otherId, materialId: materialId, unread: 0, messages: [
+        { from: "system", text: "Conversación iniciada desde la ficha de “" + item.title + "”.", time: new Date() }
+      ] };
+      state.conversations.push(conversation);
+    }
+    state.activeConversation = conversation.id;
+    go("chat");
+    openConversation(conversation.id, prefill || (conversation.messages.length === 1 ? "Hola " + users[otherId].name.split(" ")[0] + ", ¿“" + item.title + "” sigue disponible?" : ""));
+  }
+
+  function setupChat() {
+    $("#conversation-list").addEventListener("click", function (event) {
+      const button = event.target.closest("[data-conversation]");
+      if (button) {
+        openConversation(button.dataset.conversation);
+        const input = $("#composer-input");
+        if (input && window.matchMedia("(min-width: 48.01rem)").matches) {
+          input.focus();
+        }
+      }
+    });
+    $("#chat-thread").addEventListener("click", function (event) {
+      if (event.target.closest("[data-back]")) {
+        state.activeConversation = null;
+        renderConversations();
+        renderThread();
+        const first = $("#conversation-list button");
+        if (first) {
+          first.focus();
+        }
+      }
+    });
+    $("#conversation-filter").addEventListener("input", renderConversations);
+  }
+
   /* ======================================================================
      Init
      ====================================================================== */
@@ -1497,11 +1733,13 @@
     setupCatalog();
     setupPublish();
     setupLoans();
+    setupChat();
 
     renderFilterOptions();
     renderCatalog();
     renderNotifications();
     renderLoans();
+    renderConversations();
     renderPublications();
     
     window.addEventListener("hashchange", route);
