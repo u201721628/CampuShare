@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Demo funcional de CampuShare: catálogo, publicación, préstamos y chat entre estudiantes.">
+  <title>Demo CampuShare | Catálogo de materiales</title>
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&family=Poppins:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="app-page">
+  <!-- icons:start --><svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol><symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol><symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5.5h16v10.5H9l-5 4z"/></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 1.5h-15z"/><path d="M10 21h4"/></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.1 8.2-7.5 9.5-4.4-1.3-7.5-4.9-7.5-9.5V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol><symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol><symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z"/><path d="M12 6.5v13"/></symbol><symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></symbol><symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></symbol><symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol><symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4 3.5 7.5 7 11M3.5 7.5H17M17 13l3.5 3.5L17 20M20.5 16.5H7"/></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-send" viewBox="0 0 24 24"><path d="M4.5 12 20 4.5 15.5 19.5 12 13z"/><path d="M12 13 20 4.5"/></symbol><symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2.5"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7 10 4.5h4L15.5 7"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol><symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></symbol><symbol id="i-edit" viewBox="0 0 24 24"><path d="M5 19h3.5L18.5 9 15 5.5 5 15.5z"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H20M17 12v3"/></symbol><symbol id="i-photo" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 16l4.5-4.5 4 4 2.5-2.5L20 18"/><circle cx="15.5" cy="9.5" r="1.5"/></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.2h.01"/></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></symbol><symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4.5 20 11v9h-5.5v-5.5h-5V20H4z"/></symbol></svg><!-- icons:end -->
+  <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+
+  <!-- App header (logged-in user) -->
+  <header class="app-header">
+    <div class="container app-header__inner">
+      <a class="logo" href="index.html" aria-label="CampuShare, volver a la página principal">
+        <img src="assets/img/isotipo.svg" alt="" width="36" height="36">
+        <span>Campu<span class="logo__accent">Share</span></span>
+      </a>
+
+      <nav class="app-nav" aria-label="Secciones de la demo">
+        <a class="app-nav__link" href="#catalog" data-nav="catalog">Catálogo</a>
+        <a class="app-nav__link" href="#publish" data-nav="publish">Publicar</a>
+        <a class="app-nav__link" href="#loans" data-nav="loans">Mis préstamos</a>
+        <a class="app-nav__link" href="#chat" data-nav="chat">Chat <span class="count-badge" data-unread-count hidden></span></a>
+      </nav>
+
+      <div class="app-header__actions">
+        <div class="popover-anchor">
+          <button class="icon-btn" type="button" id="bell-button" aria-haspopup="true" aria-expanded="false" aria-controls="notifications">
+            <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+            <span class="icon-btn__dot" id="bell-dot" hidden></span>
+            <span class="visually-hidden" id="bell-label">Notificaciones</span>
+          </button>
+          <section class="popover" id="notifications" aria-labelledby="notifications-title" hidden>
+            <div class="popover__header">
+              <h2 class="popover__title" id="notifications-title">Notificaciones</h2>
+              <button class="link-btn" type="button" id="notifications-clear">Marcar como leídas</button>
+            </div>
+            <ul class="notification-list" id="notification-list"></ul>
+          </section>
+        </div>
+        <div class="popover-anchor">
+          <button class="avatar-btn" type="button" id="profile-button" aria-haspopup="true" aria-expanded="false" aria-controls="profile-menu">
+            <span class="avatar" id="my-initials" aria-hidden="true">LA</span>
+            <span class="visually-hidden">Menú de perfil</span>
+          </button>
+          <div class="popover popover--menu" id="profile-menu" hidden>
+            <p class="popover__user"><strong id="my-name">Estudiante</strong><span id="my-email">u202312345@upc.edu.pe</span></p>
+            <button class="menu-item" type="button" id="my-profile-button"><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>Mi reputación</button>
+            <a class="menu-item" href="index.html" id="logout-link"><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg>Cerrar sesión</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="app-main">
+    <!-- ===================== V1 Catalog (HU010, HU011, HU013, HU029, HU030, HU032) ===================== -->
+    <section class="view container" id="view-catalog" data-view="catalog" aria-labelledby="catalog-title">
+      <div class="view__header">
+        <div>
+          <h1 class="view__title" id="catalog-title">Catálogo de materiales</h1>
+          <p class="view__subtitle" id="catalog-subtitle">Materiales publicados por estudiantes de tu universidad</p>
+        </div>
+        <label class="inline-select">
+          <svg class="icon icon--sm" aria-hidden="true"><use href="#i-pin"></use></svg>
+          <span>Tu sede</span>
+          <select class="select" id="my-campus">
+            <option>Monterrico</option>
+            <option>San Isidro</option>
+            <option>Villa</option>
+            <option>San Miguel</option>
+          </select>
+        </label>
+      </div>
+
+      <form class="search" id="catalog-search" role="search" autocomplete="off">
+        <div class="search__box">
+          <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+          <label class="visually-hidden" for="catalog-query">Buscar por nombre o código del curso, material o punto de recojo</label>
+          <input class="search__input" id="catalog-query" type="search" placeholder="Curso, código (MA262) o material"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions" aria-describedby="search-help">
+          <button class="btn btn--primary" type="submit">Buscar</button>
+        </div>
+        <p class="visually-hidden" id="search-help">Escribe al menos dos caracteres para ver sugerencias. Usa las flechas para elegir una.</p>
+        <ul class="suggestions" id="suggestions" role="listbox" aria-label="Sugerencias" hidden></ul>
+      </form>
+
+      <div class="catalog-layout">
+        <aside class="filters" id="filters" aria-labelledby="filters-title">
+          <button class="btn btn--secondary btn--sm filters__toggle" type="button" id="filters-toggle" aria-expanded="false" aria-controls="filters-panel">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-filter"></use></svg>
+            Filtros <span class="count-badge" id="filters-count" hidden></span>
+          </button>
+          <div class="filters__panel" id="filters-panel">
+            <h2 class="filters__title" id="filters-title"><svg class="icon" aria-hidden="true"><use href="#i-filter"></use></svg>Filtros</h2>
+
+            <label class="switch">
+              <input type="checkbox" id="only-available" checked>
+              <span class="switch__track" aria-hidden="true"></span>
+              <span>Solo disponibles</span>
+            </label>
+
+            <fieldset class="filters__group">
+              <legend>Facultad</legend>
+              <div id="filter-faculty"></div>
+            </fieldset>
+            <fieldset class="filters__group">
+              <legend>Tipo de material</legend>
+              <div id="filter-category"></div>
+            </fieldset>
+            <fieldset class="filters__group">
+              <legend>Sede</legend>
+              <div id="filter-campus"></div>
+            </fieldset>
+
+            <div class="filters__group">
+              <p class="filters__legend">Cercanía</p>
+              <ul class="legend-list">
+                <li><span class="proximity proximity--near">Misma sede</span></li>
+                <li><span class="proximity proximity--mid">Sede cercana</span></li>
+                <li><span class="proximity proximity--far">Otra sede</span></li>
+              </ul>
+            </div>
+            <button class="btn btn--ghost btn--sm" type="button" id="filters-reset">Limpiar filtros</button>
+          </div>
+        </aside>
+
+        <div class="results">
+          <div class="results__bar">
+            <h2 class="results__title" id="results-title">Todos los materiales</h2>
+            <p class="results__count" id="results-count" aria-live="polite"></p>
+            <label class="inline-select">
+              <span class="visually-hidden">Ordenar resultados</span>
+              <select class="select" id="sort-select">
+                <option value="near">Ordenar: más cercanos</option>
+                <option value="rating">Ordenar: mejor calificados</option>
+                <option value="title">Ordenar: nombre (A-Z)</option>
+              </select>
+            </label>
+          </div>
+          <ul class="results__grid" id="results-grid" aria-labelledby="results-title"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Mobile tab bar -->
+  <nav class="tabbar" aria-label="Secciones de la demo">
+    <a class="tabbar__link" href="#catalog" data-nav="catalog"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>Catálogo</a>
+    <a class="tabbar__link" href="#publish" data-nav="publish"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Publicar</a>
+    <a class="tabbar__link" href="#loans" data-nav="loans"><svg class="icon" aria-hidden="true"><use href="#i-swap"></use></svg>Préstamos</a>
+    <a class="tabbar__link" href="#chat" data-nav="chat"><svg class="icon" aria-hidden="true"><use href="#i-chat"></use></svg>Chat<span class="tabbar__badge" data-unread-count hidden></span></a>
+  </nav>
+
+  <!-- ===================== Dialogs ===================== -->
+   
+  <!-- Generic confirmation (withdraw publication, cancel request) -->
+  <dialog class="modal modal--small" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog" class="modal__form" id="confirm-form">
+      <div class="modal__header">
+        <h2 class="modal__title" id="confirm-title">¿Confirmas?</h2>
+      </div>
+      <div class="modal__body">
+        <p id="confirm-text"></p>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-close>Volver</button>
+        <button class="btn btn--danger" type="submit" id="confirm-ok">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast-region" id="toast-region" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
