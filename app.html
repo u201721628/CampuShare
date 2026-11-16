@@ -150,6 +150,147 @@
         </div>
       </div>
     </section>
+
+    <!-- ===================== V4 Publish (HU006, HU007, HU008, HU009) ===================== -->
+    <section class="view container" id="view-publish" data-view="publish" aria-labelledby="publish-title" hidden>
+      <div class="view__header">
+        <div>
+          <h1 class="view__title" id="publish-title">Publicar un material</h1>
+          <p class="view__subtitle">Tres pasos y menos de un minuto</p>
+        </div>
+      </div>
+
+      <div class="publish-layout">
+        <form class="card publish-form" id="publish-form" novalidate>
+          <ol class="stepper" aria-label="Pasos de la publicación">
+            <li class="stepper__step" data-step-indicator="1"><span class="stepper__dot">1</span><span class="stepper__label">Foto y datos</span></li>
+            <li class="stepper__step" data-step-indicator="2"><span class="stepper__dot">2</span><span class="stepper__label">Modalidad y estado</span></li>
+            <li class="stepper__step" data-step-indicator="3"><span class="stepper__dot">3</span><span class="stepper__label">Entrega</span></li>
+          </ol>
+
+          <!-- Step 1 -->
+          <fieldset class="publish-step" data-step="1">
+            <legend class="publish-step__title">Foto y datos del material</legend>
+            <div class="photo-picker">
+              <label class="photo-picker__drop" for="pub-photo">
+                <img id="pub-photo-preview" src="assets/img/isotipo.svg" alt="Vista previa de la foto del material" hidden>
+                <span class="photo-picker__placeholder" id="pub-photo-placeholder">
+                  <svg class="icon icon--lg" aria-hidden="true"><use href="#i-camera"></use></svg>
+                  <span><strong>Sube una foto</strong><br>JPG o PNG, se usará para comparar el estado en la devolución</span>
+                </span>
+              </label>
+              <input class="visually-hidden" type="file" id="pub-photo" accept="image/*" aria-describedby="pub-photo-error">
+              <p class="field__error" id="pub-photo-error"></p>
+            </div>
+            <div class="form-grid">
+              <div class="form-field form-field--full">
+                <label for="pub-title">Nombre del material</label>
+                <input id="pub-title" type="text" placeholder="Ej. Calculadora Casio fx-991" required aria-describedby="pub-title-error">
+                <p class="field__error" id="pub-title-error"></p>
+              </div>
+              <div class="form-field">
+                <label for="pub-course">Curso asociado</label>
+                <input id="pub-course" type="text" list="course-options" placeholder="Ej. Cálculo I" required aria-describedby="pub-course-error">
+                <datalist id="course-options"></datalist>
+                <p class="field__error" id="pub-course-error"></p>
+              </div>
+              <div class="form-field">
+                <label for="pub-category">Tipo de material</label>
+                <select id="pub-category" class="input-select">
+                  <option>Libros</option>
+                  <option>Calculadoras</option>
+                  <option>Laboratorio</option>
+                  <option>Dibujo</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Step 2 -->
+          <fieldset class="publish-step" data-step="2" hidden>
+            <legend class="publish-step__title">¿Cómo quieres compartirlo?</legend>
+            <div class="option-cards" role="radiogroup" aria-label="Modalidad">
+              <label class="option-card">
+                <input type="radio" name="modality" value="loan" checked>
+                <span class="option-card__icon"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg></span>
+                <span class="option-card__title">Préstamo</span>
+                <span class="option-card__text">Lo recuperas al final</span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="modality" value="donation">
+                <span class="option-card__icon"><svg class="icon" aria-hidden="true"><use href="#i-heart"></use></svg></span>
+                <span class="option-card__title">Donación</span>
+                <span class="option-card__text">Lo regalas a otro estudiante</span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="modality" value="exchange">
+                <span class="option-card__icon"><svg class="icon" aria-hidden="true"><use href="#i-swap"></use></svg></span>
+                <span class="option-card__title">Intercambio</span>
+                <span class="option-card__text">Lo cambias por otro material</span>
+              </label>
+            </div>
+
+            <div class="modality-fields" data-modality-field="loan">
+              <div class="form-field">
+                <label for="pub-max-days">Plazo máximo de préstamo</label>
+                <select id="pub-max-days" class="input-select">
+                  <option value="15">15 días</option>
+                  <option value="30">30 días</option>
+                  <option value="45">45 días</option>
+                  <option value="60" selected>60 días</option>
+                </select>
+              </div>
+            </div>
+            <div class="modality-fields" data-modality-field="exchange" hidden>
+              <div class="form-field">
+                <label for="pub-wanted">¿Qué te gustaría recibir a cambio?</label>
+                <input id="pub-wanted" type="text" placeholder="Ej. Formulario de integrales" aria-describedby="pub-wanted-error">
+                <p class="field__error" id="pub-wanted-error"></p>
+              </div>
+            </div>
+            <div class="modality-fields" data-modality-field="donation" hidden>
+              <p class="notice notice--ok"><svg class="icon notice__icon" aria-hidden="true"><use href="#i-heart"></use></svg>Las donaciones no tienen plazo de devolución. ¡Gracias por compartir!</p>
+            </div>
+
+            <h3 class="publish-step__subtitle">Estado del material</h3>
+            <div class="radio-list" role="radiogroup" aria-label="Estado del material">
+              <label class="radio-row"><input type="radio" name="condition" value="Nuevo"><span><strong>Nuevo</strong><small>Sin uso</small></span></label>
+              <label class="radio-row"><input type="radio" name="condition" value="Buen estado" checked><span><strong>Buen estado</strong><small>Uso leve, sin daños</small></span></label>
+              <label class="radio-row"><input type="radio" name="condition" value="Con desgaste"><span><strong>Con desgaste</strong><small>Funciona, con marcas de uso</small></span></label>
+            </div>
+            <div class="form-field">
+              <label for="pub-description">Descripción (opcional)</label>
+              <textarea id="pub-description" rows="3" placeholder="Cuenta qué incluye y cualquier detalle importante."></textarea>
+            </div>
+          </fieldset>
+
+          <!-- Step 3 -->
+          <fieldset class="publish-step" data-step="3" hidden>
+            <legend class="publish-step__title">Puntos seguros de entrega</legend>
+            <p class="publish-step__help">Elige dónde puedes entregar el material. Solo mostramos puntos señalizados de tu sede.</p>
+            <div class="check-list" id="pub-points" aria-describedby="pub-points-error"></div>
+            <p class="field__error" id="pub-points-error"></p>
+            <div class="form-field">
+              <label for="pub-until">Disponible hasta</label>
+              <input id="pub-until" type="date" required aria-describedby="pub-until-error">
+              <p class="field__error" id="pub-until-error"></p>
+            </div>
+            <div class="summary" id="pub-summary" aria-live="polite"></div>
+          </fieldset>
+
+          <div class="publish-form__actions">
+            <button class="btn btn--secondary" type="button" id="pub-back">Atrás</button>
+            <button class="btn btn--primary" type="button" id="pub-next">Continuar</button>
+            <button class="btn btn--cta" type="submit" id="pub-submit" hidden>Publicar material</button>
+          </div>
+        </form>
+
+        <section class="card my-publications" aria-labelledby="my-pubs-title">
+          <h2 class="card__title" id="my-pubs-title">Mis publicaciones</h2>
+          <ul class="pub-list" id="pub-list"></ul>
+        </section>
+      </div>
+    </section>
   </main>
 
   <!-- Mobile tab bar -->
@@ -161,7 +302,20 @@
   </nav>
 
   <!-- ===================== Dialogs ===================== -->
-   
+  <dialog class="modal" id="edit-dialog" aria-labelledby="edit-title">
+    <form method="dialog" class="modal__form" id="edit-form" novalidate>
+      <div class="modal__header">
+        <h2 class="modal__title" id="edit-title">Editar publicación</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="modal__body" id="edit-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-close>Cancelar</button>
+        <button class="btn btn--primary" type="submit">Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Generic confirmation (withdraw publication, cancel request) -->
   <dialog class="modal modal--small" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
     <form method="dialog" class="modal__form" id="confirm-form">
