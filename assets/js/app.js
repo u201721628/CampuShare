@@ -1973,6 +1973,118 @@
     });
   }
 
+    /* ======================================================================
+     10. V7 Rate (HU021) and Report (HU023 user / HU044 publication)
+     ====================================================================== */
+  const RATE_LABELS = ["", "Muy malo", "Malo", "Regular", "Muy bueno", "Excelente"];
+  let ratingTarget = null;
+
+  function openRate(userId, materialTitle, historyId) {
+    const user = users[userId];
+    ratingTarget = { userId: userId, historyId: historyId };
+    $("#rate-title").textContent = "Calificar a " + user.name.split(" ")[0];
+    $("#rate-body").innerHTML =
+      '<div class="rate-head"><span class="avatar avatar--xl" aria-hidden="true">' + user.initials + "</span>" +
+        "<h3>¿Cómo te fue con " + escapeHtml(user.name.split(" ")[0]) + "?</h3><p>Préstamo de “" + escapeHtml(materialTitle) + "”</p></div>" +
+      '<fieldset class="stars"><legend class="visually-hidden">Calificación de 1 a 5 estrellas</legend>' +
+        [5, 4, 3, 2, 1].map(function (n) {
+          return '<input type="radio" name="stars" id="star-' + n + '" value="' + n + '"><label for="star-' + n + '"><span class="visually-hidden">' + plural(n, "estrella", "estrellas") + " – " + RATE_LABELS[n] + "</span>" + icon("star") + "</label>";
+        }).join("") + "</fieldset>" +
+      '<p class="rate-label" id="rate-label" aria-live="polite">Elige de 1 a 5 estrellas</p>' +
+      "<fieldset class=\"filters__group\"><legend>¿Qué destacas? (opcional)</legend><div class=\"chip-group\">" +
+        ["Puntual", "Cuidó el material", "Buena comunicación"].map(function (tag) {
+          return '<label class="chip-check"><input type="checkbox" value="' + tag + '"><span>' + tag + "</span></label>";
+        }).join("") + "</div></fieldset>" +
+      '<div class="form-field"><label for="rate-comment">Comentario (opcional)</label><textarea id="rate-comment" rows="3" maxlength="300" placeholder="Cuéntale a la comunidad cómo fue el préstamo."></textarea></div>' +
+      '<p class="modal__help">Puedes editar tu calificación durante 48 horas.</p>';
+    $$("input[name='stars']").forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        $("#rate-label").textContent = radio.value + " de 5 · " + RATE_LABELS[radio.value];
+      });
+    });
+    openDialog("rate-dialog");
+  }
+
+  function submitRate(event) {
+    event.preventDefault();
+    const checked = $("input[name='stars']:checked");
+    if (!checked) {
+      $("#rate-label").textContent = "Elige al menos una estrella para enviar tu calificación.";
+      $("#star-5").focus();
+      return;
+    }
+    const stars = Number(checked.value);
+    const user = users[ratingTarget.userId];
+    user.rating = (user.rating * user.ratings + stars) / (user.ratings + 1);
+    user.ratings += 1;
+    const comment = $("#rate-comment").value.trim();
+    REVIEWS[user.id] = REVIEWS[user.id] || [];
+    REVIEWS[user.id].unshift([users.me.name.split(" ")[0] + " " + users.me.name.split(" ")[1].charAt(0) + ".", stars, comment || "Sin comentario."]);
+    const entry = state.history.find(function (h) { return h.id === ratingTarget.historyId; });
+    if (entry) {
+      entry.rating = stars;
+    }
+    closeDialog("rate-dialog");
+    showToast("Calificación enviada. Nuevo promedio de " + user.name.split(" ")[0] + ": " + user.rating.toFixed(1) + " ★");
+    renderLoans();
+    renderCatalog();
+  }
+
+  let reportTarget = null;
+
+  function openReport(type, id) {
+    reportTarget = { type: type, id: id };
+    const isUser = type === "user";
+    const name = isUser ? users[id].name : material(id).title;
+    const reasons = isUser
+      ? ["No devolvió el material a tiempo", "Devolvió el material con daños", "No se presentó a la entrega", "Trato inadecuado", "Otro motivo"]
+      : ["Información falsa o engañosa", "Material sospechoso o prohibido", "Las fotos no corresponden", "Pide pagos fuera de la app", "Otro motivo"];
+    $("#report-title").textContent = isUser ? "Reportar a un usuario" : "Reportar publicación";
+    $("#report-submit").textContent = isUser ? "Enviar reporte" : "Reportar publicación";
+    $("#report-body").innerHTML =
+      '<p class="notice notice--error">' + icon("flag", "notice__icon") + "<span>Vas a reportar " + (isUser ? "a " : "") + "<strong>" + escapeHtml(name) + "</strong>. El equipo de moderación lo revisará.</span></p>" +
+      '<fieldset class="filters__group"><legend>¿Qué pasó?</legend><div class="radio-list">' + reasons.map(function (reason, index) {
+        return '<label class="radio-row radio-row--danger"><input type="radio" name="report-reason" value="' + reason + '"' + (index === 0 ? " checked" : "") + "><span>" + reason + "</span></label>";
+      }).join("") + "</div></fieldset>" +
+      '<div class="form-field"><label for="report-detail">Detalle' + (isUser ? "" : " (opcional)") + '</label><textarea id="report-detail" rows="3" maxlength="500" aria-describedby="report-detail-error" placeholder="' + (isUser ? "Ej. Quedamos el 20/10 y hasta hoy no responde ni devuelve la calculadora." : "Cuéntanos qué viste.") + '"></textarea><p class="field__error" id="report-detail-error"></p></div>' +
+      (isUser ? '<label class="checkbox"><input type="checkbox" id="report-block" checked><span><strong>Bloquear a este usuario</strong><br><small>No podrá ver tus publicaciones ni escribirte.</small></span></label>' : "");
+    closeDialog("detail-dialog");
+    closeDialog("deal-dialog");
+    openDialog("report-dialog");
+  }
+
+  function submitReport(event) {
+    event.preventDefault();
+    const detail = $("#report-detail").value.trim();
+    if (reportTarget.type === "user") {
+      if (!setFieldError("report-detail", detail.length >= 10 ? "" : "Describe brevemente lo ocurrido (mínimo 10 caracteres).")) {
+        $("#report-detail").focus();
+        return;
+      }
+      const user = users[reportTarget.id];
+      user.incidents += 1;
+      const block = $("#report-block").checked;
+      if (block) {
+        state.blocked[user.id] = true;
+      }
+      closeDialog("report-dialog");
+      showToast("Reporte enviado" + (block ? " y usuario bloqueado" : "") + ". Moderación lo atenderá en menos de 24 horas.");
+      addNotification("Registramos tu reporte sobre " + user.name + ". Caso derivado a moderación (respuesta en menos de 24 h).", "warn", "flag");
+      renderCatalog();
+      renderConversations();
+      if (currentView() === "chat") {
+        renderThread();
+      }
+      renderLoans();
+    } else {
+      const item = material(reportTarget.id);
+      item.flagged = true;
+      closeDialog("report-dialog");
+      showToast("Gracias. El equipo de moderación revisará “" + item.title + "”.");
+      addNotification("Reportaste la publicación “" + item.title + "”. La revisaremos pronto.", "warn", "flag");
+    }
+  }
+
   /* ======================================================================
      Init
      ====================================================================== */
@@ -2008,6 +2120,8 @@
         confirmAction = null;
       }
     });
+    $("#rate-form").addEventListener("submit", submitRate);
+    $("#report-form").addEventListener("submit", submitReport);
 
     setupCatalog();
     setupDetailAndRequest();
