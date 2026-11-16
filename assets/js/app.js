@@ -1695,6 +1695,285 @@
   }
 
   /* ======================================================================
+     6. V2 Detail (HU012, HU022, HU038, HU044, HU050) + V3 Request (HU014, HU016, HU017)
+     ====================================================================== */
+  const SAFETY_TIPS = [
+    "Entrega solo en puntos seguros y señalizados del campus.",
+    "Verifica el código de entrega antes de soltar el material.",
+    "Revisa el estado del material frente al otro estudiante.",
+    "No compartas tu número ni hagas pagos fuera de la app."
+  ];
+
+  function safetyNotice(withReport, userId) {
+    return '<div class="notice notice--warn">' + icon("shield", "notice__icon") +
+      "<div><strong>Consejos para una entrega segura</strong><ul class=\"notice__list\">" +
+      SAFETY_TIPS.map(function (tip) { return "<li>" + tip + "</li>"; }).join("") + "</ul>" +
+      (withReport ? '<button class="link-btn" type="button" data-report-user="' + userId + '">Reportar un problema</button>' : "") +
+      "</div></div>";
+  }
+
+  function ownerCard(user, withLink) {
+    const onTimePct = user.deals ? Math.round((user.onTime / user.deals) * 100) : 100;
+    return '<div class="owner-card">' +
+      '<div class="owner-card__head"><span class="avatar avatar--lg" aria-hidden="true">' + user.initials + "</span>" +
+        "<div><p class=\"owner-card__name\">" + escapeHtml(user.name) + "</p>" +
+        '<p class="owner-card__meta">' + escapeHtml(user.career) + " · " + escapeHtml(user.cycle) + "</p>" +
+        '<span class="verified">' + icon("shield") + "Correo institucional verificado</span></div></div>" +
+      '<div class="owner-card__stats">' +
+        '<div class="owner-card__stat"><strong>' + user.rating.toFixed(1) + " ★</strong><span>Calificación (" + user.ratings + ")</span></div>" +
+        '<div class="owner-card__stat"><strong>' + user.deals + "</strong><span>Tratos</span></div>" +
+        '<div class="owner-card__stat owner-card__stat--ok"><strong>' + onTimePct + "%</strong><span>Devoluciones a tiempo</span></div>" +
+        '<div class="owner-card__stat' + (user.incidents ? " owner-card__stat--alert" : " owner-card__stat--ok") + '"><strong>' + user.incidents + "</strong><span>Incidencias</span></div>" +
+      "</div>" +
+      (withLink ? '<button class="link-btn owner-card__link" type="button" data-profile="' + user.id + '">Ver reputación e historial</button>' : "") +
+      "</div>";
+  }
+
+  function openDetail(id) {
+    const item = material(id);
+    const owner = users[item.ownerId];
+    const proximity = proximityOf(item);
+    const mine = item.ownerId === "me";
+    let modalityInfo = "";
+    if (item.modality === "loan") {
+      modalityInfo = "Préstamo · plazo máximo de " + item.maxDays + " días";
+    } else if (item.modality === "exchange") {
+      modalityInfo = "Intercambio · a cambio de " + escapeHtml(item.wanted || "otro material");
+    } else {
+      modalityInfo = "Donación · no requiere devolución";
+    }
+    let actions;
+    if (mine) {
+      actions = '<p class="notice notice--info">' + icon("info", "notice__icon") + 'Es tu publicación. Puedes editarla o pausarla desde “Publicar”.</p>' +
+        '<div class="detail__actions"><a class="btn btn--secondary" href="#publish" data-close>Gestionar publicación</a></div>';
+    } else {
+      const canRequest = item.status === "available";
+      actions = '<div class="detail__actions">' +
+        (canRequest
+          ? '<button class="btn btn--primary" type="button" data-request="' + item.id + '">Solicitar ' + (item.modality === "loan" ? "préstamo" : item.modality === "donation" ? "donación" : "intercambio") + "</button>"
+          : '<button class="btn btn--primary" type="button" disabled>No disponible por ahora</button>') +
+        '<button class="btn btn--secondary" type="button" data-chat-owner="' + item.id + '">' + icon("chat") + "Escribir al dueño</button>" +
+        "</div>" +
+        '<button class="link-btn link-btn--muted" type="button" data-report-post="' + item.id + '">' + icon("flag", "icon--sm") + " Reportar esta publicación</button>";
+    }
+    $("#detail-title").textContent = item.title;
+    $("#detail-body").innerHTML =
+      '<div class="detail">' +
+        '<div class="detail__gallery">' +
+          '<div class="detail__photo">' + materialMedia(item) + "</div>" +
+          '<div class="detail__thumbs" aria-hidden="true"><span class="detail__thumb detail__thumb--active">' + icon("book") + '</span><span class="detail__thumb">' + icon("photo") + '</span><span class="detail__thumb">' + icon("photo") + "</span></div>" +
+          safetyNotice(false) +
+        "</div>" +
+        '<div class="detail__info">' +
+          '<div class="detail__badges">' + statusBadge(item) + '<span class="badge badge--info">' + DATA.modalityLabel[item.modality] + "</span>" +
+            (item.flagged ? '<span class="badge badge--err">En revisión</span>' : "") + "</div>" +
+          '<h3 class="detail__title">' + escapeHtml(item.title) + "</h3>" +
+          '<p class="detail__course">' + escapeHtml(item.course) + " (" + escapeHtml(item.code) + ") · " + escapeHtml(item.faculty) + " · " + escapeHtml(item.category) + "</p>" +
+          '<ul class="info-list">' +
+            "<li>" + icon("info") + "<span><strong>Estado:</strong>" + escapeHtml(item.condition) + "</span></li>" +
+            "<li>" + icon("clock") + "<span><strong>Modalidad:</strong>" + modalityInfo + "</span></li>" +
+            "<li>" + icon("pin") + "<span><strong>Punto de recojo:</strong>" + escapeHtml(item.point) + ' · <span class="proximity proximity--' + proximity + '">' + DATA.proximityLabel[proximity] + "</span></span></li>" +
+            "<li>" + icon("calendar") + "<span><strong>Disponible hasta:</strong>" + escapeHtml(item.until) + "</span></li>" +
+          "</ul>" +
+          '<p class="detail__description">' + escapeHtml(item.description) + "</p>" +
+          ownerCard(owner, !mine) +
+          actions +
+        "</div>" +
+      "</div>";
+    openDialog("detail-dialog");
+  }
+
+  let requestMaterialId = null;
+
+  function openRequest(id) {
+    const item = material(id);
+    requestMaterialId = id;
+    const owner = users[item.ownerId];
+    const points = DATA.safePoints[item.campus];
+    const mySlots = DATA.freeSlots.me;
+    const shared = (DATA.freeSlots[item.ownerId] || []).filter(function (slot) {
+      return mySlots.indexOf(slot) !== -1;
+    });
+    const isLoan = item.modality === "loan";
+    const today = toInputDate(NOW);
+    const maxDate = toInputDate(addDays(NOW, isLoan ? item.maxDays : 30));
+    $("#request-title").textContent = isLoan ? "Solicitar préstamo" : item.modality === "donation" ? "Pedir donación" : "Proponer intercambio";
+    $("#request-body").innerHTML =
+      '<div class="material-summary"><span class="material-summary__thumb">' + icon("book") + "</span>" +
+        "<div><strong>" + escapeHtml(item.title) + "</strong><span>" + escapeHtml(owner.name) + " · " + escapeHtml(item.point) + "</span></div></div>" +
+      '<p class="notice notice--error" id="request-error" hidden></p>' +
+      "<section><h3 class=\"modal__section-title\">1. " + (isLoan ? "¿Hasta cuándo lo necesitas?" : "¿Cuándo puedes recogerlo?") + "</h3>" +
+        '<div class="date-row">' +
+          '<div class="form-field"><label for="req-from">' + (isLoan ? "Desde" : "Fecha de recojo") + '</label><input type="date" id="req-from" min="' + today + '" max="' + maxDate + '" value="' + today + '" required></div>' +
+          (isLoan ? '<div class="form-field"><label for="req-to">Hasta (fecha de devolución)</label><input type="date" id="req-to" min="' + today + '" max="' + maxDate + '" value="' + toInputDate(addDays(NOW, Math.min(14, item.maxDays))) + '" required aria-describedby="req-duration"></div>' : "") +
+        "</div>" +
+        (isLoan ? '<p class="duration-note" id="req-duration" aria-live="polite"></p>' : "") +
+        (item.modality === "exchange" ? '<p class="duration-note">El dueño quiere a cambio: ' + escapeHtml(item.wanted) + "</p>" : "") +
+      "</section>" +
+      "<section><h3 class=\"modal__section-title\">2. Punto seguro de entrega</h3>" +
+        '<p class="modal__help">Puntos señalizados que ' + escapeHtml(owner.name.split(" ")[0]) + " habilitó en la sede " + escapeHtml(item.campus) + ".</p>" +
+        '<div class="radio-list">' + points.map(function (point, index) {
+          return '<label class="radio-row"><input type="radio" name="req-point" value="' + escapeHtml(point) + '"' + ((point === item.point || (index === 0 && points.indexOf(item.point) === -1)) ? " checked" : "") + "><span><strong>" + escapeHtml(point) + "</strong><small>" + (index === 0 ? "Primer piso, módulo de informes" : "Zona con cámaras y personal de seguridad") + "</small></span></label>";
+        }).join("") + "</div>" +
+      "</section>" +
+      "<section><h3 class=\"modal__section-title\">3. Franja horaria para la entrega</h3>" +
+        (shared.length
+          ? '<p class="modal__help">Coinciden ' + plural(shared.length, "franja", "franjas") + " según el horario de clases de ambos.</p>" +
+            '<div class="chip-group" role="radiogroup" aria-label="Franja horaria">' + shared.map(function (slot, index) {
+              return '<label class="chip-radio"><input type="radio" name="req-slot" value="' + slot + '"' + (index === 0 ? " checked" : "") + "><span>" + slot + "</span></label>";
+            }).join("") + "</div>"
+          : '<p class="notice notice--warn">' + icon("info", "notice__icon") + "No tienen franjas en común. Podrán coordinar la hora por chat.</p>") +
+      "</section>" +
+      '<p class="notice notice--neutral">' + icon("info", "notice__icon") + escapeHtml(owner.name.split(" ")[0]) + " tiene 24 horas para aceptar tu solicitud. Te avisaremos por notificación y podrás coordinar los detalles por chat.</p>";
+
+    if (isLoan) {
+      const update = function () {
+        updateDuration(item);
+      };
+      $("#req-from").addEventListener("change", update);
+      $("#req-to").addEventListener("change", update);
+      update();
+    }
+    closeDialog("detail-dialog");
+    openDialog("request-dialog");
+  }
+
+  function updateDuration(item) {
+    const from = $("#req-from").value;
+    const to = $("#req-to").value;
+    const note = $("#req-duration");
+    if (!from || !to) {
+      return false;
+    }
+    const days = daysBetween(fromInputDate(from), fromInputDate(to));
+    note.classList.remove("duration-note--error");
+    if (days < 1) {
+      note.textContent = "La fecha de devolución debe ser posterior a la de inicio.";
+      note.classList.add("duration-note--error");
+      return false;
+    }
+    if (days > item.maxDays) {
+      note.textContent = "Elegiste " + days + " días, pero el dueño permite máximo " + item.maxDays + " días.";
+      note.classList.add("duration-note--error");
+      return false;
+    }
+    note.textContent = "Duración: " + plural(days, "día", "días") + " · Máximo permitido por el dueño: " + item.maxDays + " días";
+    return true;
+  }
+
+  function submitRequest(event) {
+    event.preventDefault();
+    const item = material(requestMaterialId);
+    const error = $("#request-error");
+    const owner = users[item.ownerId];
+    error.hidden = true;
+    // HU014 (alternative scenario): the material is no longer available
+    if (item.status !== "available") {
+      error.innerHTML = icon("alert", "notice__icon") + "Este material ya no está disponible: otro estudiante confirmó una entrega. Activa “Avisarme si se libera”.";
+      error.hidden = false;
+      return;
+    }
+    const duplicated = state.requestsSent.some(function (r) {
+      return r.materialId === item.id && (r.status === "pending" || r.status === "accepted");
+    });
+    if (duplicated) {
+      error.innerHTML = icon("alert", "notice__icon") + "Ya tienes una solicitud activa para este material. Revísala en “Mis préstamos”.";
+      error.hidden = false;
+      return;
+    }
+    if (item.modality === "loan" && !updateDuration(item)) {
+      $("#req-to").focus();
+      return;
+    }
+    const from = fromInputDate($("#req-from").value);
+    const to = item.modality === "loan" ? fromInputDate($("#req-to").value) : from;
+    const pointInput = $("input[name='req-point']:checked");
+    const slotInput = $("input[name='req-slot']:checked");
+    const request = {
+      id: uid("s"), materialId: item.id, from: from, to: to,
+      point: pointInput ? pointInput.value : item.point,
+      slot: slotInput ? slotInput.value : "Por coordinar",
+      status: "pending", createdAt: new Date()
+    };
+    state.requestsSent.unshift(request);
+    closeDialog("request-dialog");
+    showToast("Solicitud enviada a " + owner.name + ". Te avisaremos cuando responda.");
+    addNotification("Enviaste una solicitud de “" + item.title + "” a " + owner.name + ".", "info", "send");
+    renderLoans();
+
+    // Simulated answer of the owner (HU014: notify when accepted)
+    setTimeout(function () {
+      if (request.status !== "pending") {
+        return;
+      }
+      if (item.status !== "available") {
+        request.status = "rejected";
+        addNotification(owner.name + " no pudo aceptar tu solicitud de “" + item.title + "”: ya no está disponible.", "warn", "alert");
+      } else {
+        request.status = "accepted";
+        request.code = randomCode();
+        item.status = "reserved";
+        addNotification(owner.name + " aceptó tu solicitud de “" + item.title + "”. Entrega en " + request.point + " (" + request.slot + "). Programamos un recordatorio.", "ok", "check");
+        showToast(owner.name.split(" ")[0] + " aceptó tu solicitud de “" + item.title + "”.");
+      }
+      renderCatalog();
+      renderLoans();
+    }, 7000);
+  }
+
+  function openProfile(userId) {
+    const user = users[userId];
+    const reviews = REVIEWS[userId] || [];
+    const incidents = userId === "u7"
+      ? "<li>Devolución con 5 días de retraso · ago. 2026</li><li>No se presentó a una entrega · set. 2026</li>"
+      : userId === "u4" ? "<li>Devolución con 2 días de retraso · jul. 2026</li>" : "";
+    $("#profile-title").textContent = userId === "me" ? "Mi reputación" : "Reputación de " + user.name.split(" ")[0];
+    $("#profile-body").innerHTML = ownerCard(user, false) +
+      (user.incidents
+        ? '<div class="notice notice--error">' + icon("alert", "notice__icon") + "<div><strong>" + plural(user.incidents, "incidencia reportada", "incidencias reportadas") + "</strong><ul class=\"notice__list\">" + (incidents || "<li>Reporte reciente en revisión por moderación</li>") + "</ul></div></div>"
+        : '<p class="notice notice--ok">' + icon("check", "notice__icon") + "Sin incidencias reportadas.</p>") +
+      "<section><h3 class=\"modal__section-title\">Últimas calificaciones</h3><ul class=\"review-list\">" +
+      reviews.map(function (review) {
+        return '<li class="review"><div class="review__head"><span>' + escapeHtml(review[0]) + "</span><span>" + "★".repeat(review[1]) + "☆".repeat(5 - review[1]) + "</span></div><p>" + escapeHtml(review[2]) + "</p></li>";
+      }).join("") + "</ul></section>";
+    openDialog("profile-dialog");
+  }
+
+  function setupDetailAndRequest() {
+    document.addEventListener("click", function (event) {
+      const request = event.target.closest("#detail-dialog [data-request]");
+      const chatOwner = event.target.closest("[data-chat-owner]");
+      const reportPost = event.target.closest("[data-report-post]");
+      const profile = event.target.closest("[data-profile]");
+      const reportUser = event.target.closest("[data-report-user]");
+      if (request) {
+        openRequest(request.dataset.request);
+      } else if (chatOwner) {
+        closeDialog("detail-dialog");
+        startConversation(chatOwner.dataset.chatOwner);
+      } else if (reportPost) {
+        openReport("post", reportPost.dataset.reportPost);
+      } else if (profile) {
+        openProfile(profile.dataset.profile);
+      } else if (reportUser) {
+        openReport("user", reportUser.dataset.reportUser);
+      }
+    });
+    $("#request-form").addEventListener("submit", submitRequest);
+    $("#my-profile-button").addEventListener("click", function () {
+      $("#profile-menu").hidden = true;
+      openProfile("me");
+    });
+    $("#logout-link").addEventListener("click", function () {
+      try {
+        sessionStorage.removeItem("campushare.email");
+      } catch (error) {
+        // ignore
+      }
+    });
+  }
+
+  /* ======================================================================
      Init
      ====================================================================== */
   function init() {
@@ -1731,6 +2010,7 @@
     });
 
     setupCatalog();
+    setupDetailAndRequest();
     setupPublish();
     setupLoans();
     setupChat();

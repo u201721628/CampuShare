@@ -356,6 +356,30 @@
   </nav>
 
   <!-- ===================== Dialogs ===================== -->
+   <!-- V2 Material detail (HU012, HU022, HU038, HU044, HU050) -->
+  <dialog class="modal modal--wide" id="detail-dialog" aria-labelledby="detail-title">
+    <div class="modal__header">
+      <h2 class="modal__title" id="detail-title">Detalle del material</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+    </div>
+    <div class="modal__body" id="detail-body"></div>
+  </dialog>
+
+  <!-- V3 Request loan (HU014, HU016, HU017) -->
+  <dialog class="modal" id="request-dialog" aria-labelledby="request-title">
+    <form method="dialog" class="modal__form" id="request-form" novalidate>
+      <div class="modal__header">
+        <h2 class="modal__title" id="request-title">Solicitar préstamo</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="modal__body" id="request-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-close>Cancelar</button>
+        <button class="btn btn--primary" type="submit">Enviar solicitud</button>
+      </div>
+    </form>
+  </dialog>
+  
   <!-- Lender: accept request choosing safe point and time slot (HU015, HU016, HU017) -->
   <dialog class="modal" id="accept-dialog" aria-labelledby="accept-title">
     <form method="dialog" class="modal__form" id="accept-form" novalidate>
