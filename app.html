@@ -291,6 +291,43 @@
         </section>
       </div>
     </section>
+
+    <!-- ===================== V5 Loans (HU015, HU018, HU019, HU020, HU024, HU041, HU042, HU043) ===================== -->
+    <section class="view container" id="view-loans" data-view="loans" aria-labelledby="loans-title" hidden>
+      <div class="view__header">
+        <div>
+          <h1 class="view__title" id="loans-title">Mis préstamos</h1>
+          <p class="view__subtitle" id="loans-summary"></p>
+        </div>
+      </div>
+
+      <ul class="counters" id="counters" aria-label="Resumen de mi actividad"></ul>
+
+      <div class="reminder" id="reminder" role="alert" hidden></div>
+
+      <div class="tabs" role="tablist" aria-label="Mi actividad">
+        <button class="tabs__tab" type="button" role="tab" id="tab-active" aria-controls="panel-active" aria-selected="true">Activos <span class="count-badge" id="count-active"></span></button>
+        <button class="tabs__tab" type="button" role="tab" id="tab-sent" aria-controls="panel-sent" aria-selected="false" tabindex="-1">Mis solicitudes <span class="count-badge" id="count-sent"></span></button>
+        <button class="tabs__tab" type="button" role="tab" id="tab-received" aria-controls="panel-received" aria-selected="false" tabindex="-1">Recibidas <span class="count-badge count-badge--warn" id="count-received"></span></button>
+        <button class="tabs__tab" type="button" role="tab" id="tab-history" aria-controls="panel-history" aria-selected="false" tabindex="-1">Historial</button>
+      </div>
+
+      <div class="tab-panel" role="tabpanel" id="panel-active" aria-labelledby="tab-active" tabindex="0">
+        <h2 class="panel-title">Materiales que tengo prestados</h2>
+        <ul class="deal-list" id="borrowed-list"></ul>
+        <h2 class="panel-title">Materiales que presté</h2>
+        <ul class="deal-list" id="lent-list"></ul>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-sent" aria-labelledby="tab-sent" tabindex="0" hidden>
+        <ul class="deal-list" id="sent-list"></ul>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-received" aria-labelledby="tab-received" tabindex="0" hidden>
+        <ul class="deal-list" id="received-list"></ul>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-history" aria-labelledby="tab-history" tabindex="0" hidden>
+        <ul class="deal-list" id="history-list"></ul>
+      </div>
+    </section>
   </main>
 
   <!-- Mobile tab bar -->
@@ -302,6 +339,99 @@
   </nav>
 
   <!-- ===================== Dialogs ===================== -->
+  <!-- Lender: accept request choosing safe point and time slot (HU015, HU016, HU017) -->
+  <dialog class="modal" id="accept-dialog" aria-labelledby="accept-title">
+    <form method="dialog" class="modal__form" id="accept-form" novalidate>
+      <div class="modal__header">
+        <h2 class="modal__title" id="accept-title">Aceptar solicitud</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="modal__body" id="accept-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-close>Cancelar</button>
+        <button class="btn btn--primary" type="submit">Aceptar y notificar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Deal detail: safety recommendations, point, slot and delivery code (HU050) -->
+  <dialog class="modal" id="deal-dialog" aria-labelledby="deal-title">
+    <div class="modal__header">
+      <h2 class="modal__title" id="deal-title">Detalle del trato</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+    </div>
+    <div class="modal__body" id="deal-body"></div>
+  </dialog>
+
+  <!-- Confirm delivery with code (HU018) -->
+  <dialog class="modal" id="delivery-dialog" aria-labelledby="delivery-title">
+    <form method="dialog" class="modal__form" id="delivery-form" novalidate>
+      <div class="modal__header">
+        <h2 class="modal__title" id="delivery-title">Confirmar entrega</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="modal__body" id="delivery-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-close>Cancelar</button>
+        <button class="btn btn--primary" type="submit">Confirmar entrega</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Confirm return (HU020) -->
+  <dialog class="modal" id="return-dialog" aria-labelledby="return-title">
+    <form method="dialog" class="modal__form" id="return-form" novalidate>
+      <div class="modal__header">
+        <h2 class="modal__title" id="return-title">Confirmar devolución</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="modal__body" id="return-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-close>Cancelar</button>
+        <button class="btn btn--primary" type="submit">Confirmar y calificar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- V7 Rate (HU021) -->
+  <dialog class="modal modal--sheet" id="rate-dialog" aria-labelledby="rate-title">
+    <form method="dialog" class="modal__form" id="rate-form" novalidate>
+      <div class="modal__header">
+        <h2 class="modal__title" id="rate-title">Calificar</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="modal__body" id="rate-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--primary btn--block" type="submit">Enviar calificación</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- V7 Report and block user (HU023) / report publication (HU044) -->
+  <dialog class="modal modal--sheet" id="report-dialog" aria-labelledby="report-title">
+    <form method="dialog" class="modal__form" id="report-form" novalidate>
+      <div class="modal__header">
+        <h2 class="modal__title" id="report-title">Reportar</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="modal__body" id="report-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" data-close>Cancelar</button>
+        <button class="btn btn--danger" type="submit" id="report-submit">Enviar reporte</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- User reputation profile (HU022) -->
+  <dialog class="modal" id="profile-dialog" aria-labelledby="profile-title">
+    <div class="modal__header">
+      <h2 class="modal__title" id="profile-title">Reputación</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg></button>
+    </div>
+    <div class="modal__body" id="profile-body"></div>
+  </dialog>
+
+  <!-- Edit publication (HU009) -->
   <dialog class="modal" id="edit-dialog" aria-labelledby="edit-title">
     <form method="dialog" class="modal__form" id="edit-form" novalidate>
       <div class="modal__header">

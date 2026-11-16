@@ -1010,6 +1010,455 @@
   }
 
   /* ======================================================================
+     8. V5 Loans (HU015, HU018, HU019, HU020, HU024, HU041, HU042, HU043)
+     ====================================================================== */
+  function countdown(dueDate) {
+    const diff = dueDate.getTime() - Date.now();
+    const abs = Math.abs(diff);
+    const days = Math.floor(abs / DAY);
+    const hours = Math.floor((abs % DAY) / HOUR);
+    const text = days ? plural(days, "día", "días") + (days < 3 && hours ? " " + hours + " h" : "") : plural(hours, "hora", "horas");
+    if (diff < 0) {
+      return { text: "Venció hace " + text, level: "danger" };
+    }
+    if (diff < 48 * HOUR) {
+      return { text: "Devuelve en " + text + " (" + formatDate(dueDate) + ")", level: "warn" };
+    }
+    return { text: "Devuelve en " + text + " (" + formatDate(dueDate) + ")", level: "ok" };
+  }
+
+  function dealThumb(item) {
+    return '<span class="deal__thumb">' + materialMedia(item) + "</span>";
+  }
+
+  function renderCounters() {
+    const published = state.materials.filter(function (item) {
+      return item.ownerId === "me" && item.status !== "withdrawn";
+    }).length;
+    const lent = state.deals.filter(function (d) { return d.role === "lender"; }).length;
+    const borrowed = state.deals.filter(function (d) { return d.role === "borrower"; }).length;
+    const totalLent = lent + state.history.filter(function (h) { return h.role === "lender"; }).length + 12;
+    const totalBorrowed = borrowed + state.history.filter(function (h) { return h.role === "borrower"; }).length + 6;
+    $("#counters").innerHTML = [
+      ["book", published, "Publicados"],
+      ["swap", lent, "Prestados ahora"],
+      ["calendar", borrowed, "Recibidos ahora"],
+      ["star", users.me.rating.toFixed(1) + " ★", "Mi calificación"]
+    ].map(function (c) {
+      return '<li class="counter"><span class="counter__icon">' + icon(c[0]) + '</span><span><strong class="counter__value">' + c[1] + '</strong><span class="counter__label">' + c[2] + "</span></span></li>";
+    }).join("");
+    $("#loans-summary").textContent = "Has prestado " + totalLent + " y recibido " + totalBorrowed + " materiales en la comunidad CampuShare.";
+  }
+
+  function renderReminder() {
+    const urgent = state.deals.filter(function (d) {
+      return d.role === "borrower" && d.status === "on-loan" && d.dueDate.getTime() - Date.now() < 48 * HOUR;
+    });
+    const box = $("#reminder");
+    if (!urgent.length) {
+      box.hidden = true;
+      return;
+    }
+    const deal = urgent[0];
+    const item = material(deal.materialId);
+    box.innerHTML = icon("bell") + "<div><strong>Recordatorio: devuelve “" + escapeHtml(item.title) + "” el " + formatDate(deal.dueDate) + ".</strong>" +
+      "<p>Te enviaremos un segundo aviso el día del vencimiento. ¿Necesitas más tiempo? " +
+      '<button class="link-btn" type="button" data-extend="' + deal.id + '">Pide una ampliación por chat</button></p></div>';
+    box.hidden = false;
+  }
+
+  function renderActive() {
+    const borrowed = state.deals.filter(function (d) { return d.role === "borrower"; });
+    const lent = state.deals.filter(function (d) { return d.role === "lender"; });
+    const accepted = state.requestsSent.filter(function (r) { return r.status === "accepted"; });
+
+    const borrowedHtml = borrowed.map(function (deal) {
+      const item = material(deal.materialId);
+      const other = users[deal.otherId];
+      const time = countdown(deal.dueDate);
+      return '<li class="deal' + (time.level === "warn" ? " deal--warn" : time.level === "danger" ? " deal--danger" : "") + '">' + dealThumb(item) +
+        '<div class="deal__body"><h3 class="deal__title">' + escapeHtml(item.title) + "</h3>" +
+        '<p class="deal__meta">Recibido de ' + escapeHtml(other.name) + " · " + escapeHtml(deal.point) + "</p>" +
+        '<p class="deal__status deal__status--' + time.level + '">' + icon("clock") + time.text + "</p></div>" +
+        '<div class="deal__actions"><button class="btn btn--secondary btn--sm" type="button" data-deal="' + deal.id + '">Ver trato</button>' +
+        '<button class="btn btn--ghost btn--sm" type="button" data-chat-user="' + deal.otherId + '" data-material="' + item.id + '">' + icon("chat", "icon--sm") + "Escribir</button></div></li>";
+    }).concat(accepted.map(function (request) {
+      const item = material(request.materialId);
+      const owner = users[item.ownerId];
+      return '<li class="deal">' + dealThumb(item) +
+        '<div class="deal__body"><h3 class="deal__title">' + escapeHtml(item.title) + "</h3>" +
+        '<p class="deal__meta">Solicitud aceptada por ' + escapeHtml(owner.name) + " · " + escapeHtml(request.point) + " · " + escapeHtml(request.slot) + "</p>" +
+        '<p class="deal__status deal__status--info">' + icon("key") + "Pendiente de recojo: muestra tu código " + request.code + "</p></div>" +
+        '<div class="deal__actions"><button class="btn btn--primary btn--sm" type="button" data-request-deal="' + request.id + '">Ver trato y código</button></div></li>';
+    }));
+    $("#borrowed-list").innerHTML = borrowedHtml.length ? borrowedHtml.join("") : '<li class="empty-state">No tienes materiales prestados. <a href="#catalog">Busca en el catálogo</a>.</li>';
+
+    $("#lent-list").innerHTML = lent.length ? lent.map(function (deal) {
+      const item = material(deal.materialId);
+      const other = users[deal.otherId];
+      if (deal.status === "pending-delivery") {
+        return '<li class="deal">' + dealThumb(item) +
+          '<div class="deal__body"><h3 class="deal__title">' + escapeHtml(item.title) + "</h3>" +
+          '<p class="deal__meta">Prestado a ' + escapeHtml(other.name) + " · " + escapeHtml(deal.slot) + " · " + escapeHtml(deal.point) + "</p>" +
+          '<p class="deal__status deal__status--info">' + icon("clock") + "Pendiente de entrega</p></div>" +
+          '<div class="deal__actions"><button class="btn btn--secondary btn--sm" type="button" data-deal="' + deal.id + '">Ver trato</button>' +
+          '<button class="btn btn--primary btn--sm" type="button" data-deliver="' + deal.id + '">' + icon("key", "icon--sm") + "Confirmar entrega</button></div></li>";
+      }
+      const time = countdown(deal.dueDate);
+      return '<li class="deal' + (time.level === "danger" ? " deal--danger" : "") + '">' + dealThumb(item) +
+        '<div class="deal__body"><h3 class="deal__title">' + escapeHtml(item.title) + "</h3>" +
+        '<p class="deal__meta">Prestado a ' + escapeHtml(other.name) + " · entregado el " + formatDate(deal.deliveredAt) + " a las " + formatTime(deal.deliveredAt) + "</p>" +
+        '<p class="deal__status deal__status--' + (time.level === "danger" ? "danger" : "ok") + '">' + icon("clock") + time.text.replace("Devuelve en", "Te lo devuelven en") + "</p></div>" +
+        '<div class="deal__actions"><button class="btn btn--ghost btn--sm" type="button" data-report-user="' + deal.otherId + '">' + icon("flag", "icon--sm") + "Reportar</button>" +
+        '<button class="btn btn--primary btn--sm" type="button" data-return="' + deal.id + '">' + icon("check", "icon--sm") + "Confirmar devolución</button></div></li>";
+    }).join("") : '<li class="empty-state">No tienes materiales prestados a otros estudiantes.</li>';
+  }
+
+  function requestStatus(status) {
+    const map = { pending: ["Pendiente", "warn"], accepted: ["Aceptada", "ok"], rejected: ["Rechazada", "err"], cancelled: ["Cancelada", "mute"] };
+    return '<span class="badge badge--' + map[status][1] + '">' + map[status][0] + "</span>";
+  }
+
+  function renderSent() {
+    $("#sent-list").innerHTML = state.requestsSent.length ? state.requestsSent.map(function (request) {
+      const item = material(request.materialId);
+      const owner = users[item.ownerId];
+      const cancellable = request.status === "pending" || request.status === "accepted";
+      return '<li class="deal">' + dealThumb(item) +
+        '<div class="deal__body"><h3 class="deal__title">' + escapeHtml(item.title) + " " + requestStatus(request.status) + "</h3>" +
+        '<p class="deal__meta">A ' + escapeHtml(owner.name) + " · " + (item.modality === "loan" ? "del " + formatDate(request.from) + " al " + formatDate(request.to) : "recojo el " + formatDate(request.from)) + " · enviada " + relativeTime(request.createdAt).toLowerCase() + "</p>" +
+        '<p class="deal__status deal__status--' + (request.status === "accepted" ? "ok" : request.status === "pending" ? "warn" : "danger") + '">' +
+          (request.status === "pending" ? icon("clock") + "Esperando respuesta (máximo 24 h)" :
+           request.status === "accepted" ? icon("check") + "Entrega en " + escapeHtml(request.point) + " · " + escapeHtml(request.slot) :
+           request.status === "rejected" ? icon("info") + "El dueño no pudo prestarlo. Busca otra opción en el catálogo." : icon("info") + "Cancelaste esta solicitud.") + "</p></div>" +
+        '<div class="deal__actions">' +
+          (request.status === "accepted" ? '<button class="btn btn--secondary btn--sm" type="button" data-request-deal="' + request.id + '">Ver trato</button>' : "") +
+          (cancellable ? '<button class="btn btn--ghost btn--sm" type="button" data-cancel-request="' + request.id + '">Cancelar solicitud</button>' : "") +
+        "</div></li>";
+    }).join("") : '<li class="empty-state">Aún no enviaste solicitudes. <a href="#catalog">Explora el catálogo</a>.</li>';
+  }
+
+  function renderReceived() {
+    const pending = state.requestsReceived.filter(function (r) {
+      return r.status === "pending" && !state.blocked[r.requesterId];
+    }).sort(function (a, b) {
+      return a.from - b.from;
+    });
+    $("#received-list").innerHTML = pending.length ? pending.map(function (request) {
+      const item = material(request.materialId);
+      const requester = users[request.requesterId];
+      return '<li class="deal">' + dealThumb(item) +
+        '<div class="deal__body"><h3 class="deal__title">' + escapeHtml(item.title) + "</h3>" +
+        '<p class="deal__meta">Lo pide del ' + formatDate(request.from) + " al " + formatDate(request.to) + " · recibida " + relativeTime(request.createdAt).toLowerCase() + "</p>" +
+        '<div class="deal__requester"><span class="avatar" aria-hidden="true">' + requester.initials + "</span>" +
+          "<span><strong>" + escapeHtml(requester.name) + "</strong> · " + requester.rating.toFixed(1) + " ★ · " + plural(requester.deals, "préstamo", "préstamos") + " · " +
+          '<span class="' + (requester.incidents ? "deal__status--danger" : "") + '">' + plural(requester.incidents, "incidencia", "incidencias") + "</span></span></div>" +
+        '<button class="link-btn" type="button" data-profile="' + requester.id + '">Ver perfil y reputación</button></div>' +
+        '<div class="deal__actions"><button class="btn btn--secondary btn--sm" type="button" data-reject="' + request.id + '">Rechazar</button>' +
+        '<button class="btn btn--primary btn--sm" type="button" data-accept="' + request.id + '">Aceptar</button></div></li>';
+    }).join("") : '<li class="empty-state">No tienes solicitudes pendientes. Te avisaremos cuando alguien pida tus materiales.</li>';
+  }
+
+  function renderHistory() {
+    $("#history-list").innerHTML = state.history.map(function (h) {
+      const other = users[h.otherId];
+      return '<li class="deal"><span class="deal__thumb">' + icon("book") + "</span>" +
+        '<div class="deal__body"><h3 class="deal__title">' + escapeHtml(h.title) + ' <span class="badge badge--mute">Cerrado</span></h3>' +
+        '<p class="deal__meta">' + (h.role === "lender" ? "Prestado a " : "Recibido de ") + escapeHtml(other.name) + " · cerrado el " + formatDate(h.closedAt) + " · " + escapeHtml(h.condition) + "</p>" +
+        '<p class="deal__status deal__status--ok">' + icon("star") + (h.rating ? "Calificaste con " + h.rating + " de 5" : "Sin calificar") + "</p></div></li>";
+    }).join("");
+  }
+
+  function renderLoans() {
+    renderCounters();
+    renderReminder();
+    renderActive();
+    renderSent();
+    renderReceived();
+    renderHistory();
+    const activeCount = state.deals.length + state.requestsSent.filter(function (r) { return r.status === "accepted"; }).length;
+    $("#count-active").textContent = activeCount || "";
+    $("#count-sent").textContent = state.requestsSent.filter(function (r) { return r.status === "pending"; }).length || "";
+    $("#count-received").textContent = state.requestsReceived.filter(function (r) { return r.status === "pending" && !state.blocked[r.requesterId]; }).length || "";
+  }
+
+  function selectTab(tab) {
+    $$(".tabs__tab").forEach(function (other) {
+      const selected = other === tab;
+      other.setAttribute("aria-selected", String(selected));
+      other.tabIndex = selected ? 0 : -1;
+      document.getElementById(other.getAttribute("aria-controls")).hidden = !selected;
+    });
+  }
+
+  /* --- Deal detail (HU050) --- */
+  function openDealDetail(options) {
+    const item = material(options.materialId);
+    const other = users[options.otherId];
+    const isBorrower = options.role === "borrower";
+    $("#deal-title").textContent = "Trato: " + item.title;
+    $("#deal-body").innerHTML =
+      '<div class="material-summary"><span class="material-summary__thumb">' + icon("book") + "</span><div><strong>" + escapeHtml(item.title) + "</strong><span>" +
+        (isBorrower ? "Te lo presta " : "Lo prestas a ") + escapeHtml(other.name) + "</span></div></div>" +
+      '<ul class="info-list">' +
+        "<li>" + icon("pin") + "<span><strong>Punto de entrega:</strong>" + escapeHtml(options.point) + " · ubicación referencial: primer piso, junto al módulo de informes</span></li>" +
+        "<li>" + icon("clock") + "<span><strong>Franja:</strong>" + escapeHtml(options.slot) + "</span></li>" +
+        (options.dueDate ? "<li>" + icon("calendar") + "<span><strong>Devolución:</strong>" + formatDate(options.dueDate) + "</span></li>" : "") +
+      "</ul>" +
+      (options.code
+        ? (isBorrower
+          ? '<div><h3 class="modal__section-title">Tu código de entrega</h3><p class="modal__help">Muéstraselo a ' + escapeHtml(other.name.split(" ")[0]) + ' en el punto de entrega. Solo así se confirma que el material llegó a la persona correcta.</p><span class="code-display">' + options.code + "</span></div>"
+          : '<p class="notice notice--info">' + icon("key", "notice__icon") + "Al encontrarse, pide a " + escapeHtml(other.name.split(" ")[0]) + " su código de 6 dígitos y confírmalo en “Confirmar entrega”.</p>")
+        : "") +
+      safetyNotice(true, options.otherId);
+    openDialog("deal-dialog");
+  }
+
+  /* --- Accept request (HU015, HU016, HU017) --- */
+  let acceptingId = null;
+
+  function openAccept(requestId) {
+    const request = state.requestsReceived.find(function (r) { return r.id === requestId; });
+    const item = material(request.materialId);
+    const requester = users[request.requesterId];
+    acceptingId = requestId;
+    const shared = DATA.freeSlots.me.filter(function (slot) {
+      return (DATA.freeSlots[request.requesterId] || []).indexOf(slot) !== -1;
+    });
+    $("#accept-title").textContent = "Aceptar solicitud de " + requester.name.split(" ")[0];
+    $("#accept-body").innerHTML =
+      '<div class="material-summary"><span class="material-summary__thumb">' + icon("book") + "</span><div><strong>" + escapeHtml(item.title) + "</strong><span>Del " + formatDate(request.from) + " al " + formatDate(request.to) + "</span></div></div>" +
+      ownerCard(requester, true) +
+      "<section><h3 class=\"modal__section-title\">1. Elige el punto seguro de entrega</h3>" +
+        '<div class="radio-list">' + DATA.safePoints[state.campus].map(function (point, index) {
+          return '<label class="radio-row"><input type="radio" name="acc-point" value="' + escapeHtml(point) + '"' + (index === 0 ? " checked" : "") + "><span><strong>" + escapeHtml(point) + "</strong><small>Punto señalizado · Sede " + escapeHtml(state.campus) + "</small></span></label>";
+        }).join("") + "</div></section>" +
+      "<section><h3 class=\"modal__section-title\">2. Franja en la que ambos coinciden</h3>" +
+        (shared.length
+          ? '<div class="chip-group" role="radiogroup" aria-label="Franja horaria">' + shared.map(function (slot, index) {
+              return '<label class="chip-radio"><input type="radio" name="acc-slot" value="' + slot + '"' + (index === 0 ? " checked" : "") + "><span>" + slot + "</span></label>";
+            }).join("") + "</div>"
+          : '<p class="notice notice--warn">' + icon("info", "notice__icon") + "No hay franjas en común; coordinarán por chat.</p>") +
+      "</section>" +
+      '<p class="notice notice--neutral">' + icon("bell", "notice__icon") + "Notificaremos a " + escapeHtml(requester.name.split(" ")[0]) + " el punto y la franja, y programaremos un recordatorio.</p>";
+    openDialog("accept-dialog");
+  }
+
+  function submitAccept(event) {
+    event.preventDefault();
+    const request = state.requestsReceived.find(function (r) { return r.id === acceptingId; });
+    const item = material(request.materialId);
+    const requester = users[request.requesterId];
+    const point = $("input[name='acc-point']:checked").value;
+    const slotInput = $("input[name='acc-slot']:checked");
+    request.status = "accepted";
+    item.status = "reserved";
+    const days = Math.max(1, daysBetween(request.from, request.to));
+    state.deals.unshift({ id: uid("d"), materialId: item.id, role: "lender", otherId: request.requesterId, status: "pending-delivery", point: point, slot: slotInput ? slotInput.value : "Por coordinar", code: randomCode(), days: days });
+    // Other pending requests for the same material can no longer be accepted
+    state.requestsReceived.forEach(function (other) {
+      if (other !== request && other.materialId === item.id && other.status === "pending") {
+        other.status = "rejected";
+      }
+    });
+    closeDialog("accept-dialog");
+    showToast("Aceptaste la solicitud. Notificamos a " + requester.name + " el punto " + point + ".");
+    addNotification("Aceptaste prestar “" + item.title + "” a " + requester.name + ". Entrega en " + point + ".", "ok", "check");
+    renderLoans();
+    renderCatalog();
+    renderPublications();
+    selectTab($("#tab-active"));
+  }
+
+  /* --- Delivery code (HU018) --- */
+  let deliveringId = null;
+  let deliveryAttempts = 0;
+
+  function openDelivery(dealId) {
+    const deal = state.deals.find(function (d) { return d.id === dealId; });
+    const other = users[deal.otherId];
+    deliveringId = dealId;
+    deliveryAttempts = 0;
+    $("#delivery-body").innerHTML =
+      "<p>Pide a <strong>" + escapeHtml(other.name) + "</strong> el código de 6 dígitos que ve en su pantalla y escríbelo aquí.</p>" +
+      '<div class="form-field"><label for="delivery-code">Código de entrega</label>' +
+      '<input class="code-input" id="delivery-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required aria-describedby="delivery-code-error"><p class="field__error" id="delivery-code-error" aria-live="assertive"></p></div>' +
+      '<p class="demo-hint"><strong>Demo:</strong> el código de ' + escapeHtml(other.name.split(" ")[0]) + " es <strong>" + deal.code + "</strong>. Prueba también con un código incorrecto.</p>";
+    openDialog("delivery-dialog");
+  }
+
+  function submitDelivery(event) {
+    event.preventDefault();
+    const deal = state.deals.find(function (d) { return d.id === deliveringId; });
+    const input = $("#delivery-code");
+    const value = input.value.replace(/\D/g, "");
+    if (value.length !== 6) {
+      setFieldError("delivery-code", "El código tiene 6 dígitos.");
+      input.focus();
+      return;
+    }
+    if (value !== deal.code) {
+      deliveryAttempts += 1;
+      setFieldError("delivery-code", "Código inválido o vencido (intento " + deliveryAttempts + "). Verifica el código en la pantalla de " + users[deal.otherId].name.split(" ")[0] + ".");
+      input.select();
+      return;
+    }
+    const item = material(deal.materialId);
+    deal.status = "on-loan";
+    deal.deliveredAt = new Date();
+    deal.dueDate = addDays(deal.deliveredAt, deal.days || item.maxDays || 30);
+    item.status = "on-loan";
+    closeDialog("delivery-dialog");
+    showToast("Entrega confirmada a las " + formatTime(deal.deliveredAt) + ". Devolución: " + formatDate(deal.dueDate) + ".");
+    addNotification("“" + item.title + "” está en préstamo. Registramos fecha, hora y plazo de devolución.", "ok", "key");
+    renderLoans();
+    renderCatalog();
+    renderPublications();
+  }
+
+  /* --- Return (HU020) --- */
+  let returningId = null;
+
+  function openReturn(dealId) {
+    const deal = state.deals.find(function (d) { return d.id === dealId; });
+    const item = material(deal.materialId);
+    returningId = dealId;
+    $("#return-body").innerHTML =
+      '<div class="material-summary"><span class="material-summary__thumb">' + icon("book") + "</span><div><strong>" + escapeHtml(item.title) + "</strong><span>Estado registrado al publicar: " + escapeHtml(item.condition) + "</span></div></div>" +
+      "<fieldset class=\"filters__group\"><legend>¿El material volvió en buen estado?</legend>" +
+        '<div class="radio-list">' +
+          '<label class="radio-row"><input type="radio" name="ret-condition" value="ok" checked><span><strong>Sí, en buen estado</strong></span></label>' +
+          '<label class="radio-row radio-row--danger"><input type="radio" name="ret-condition" value="damaged"><span><strong>Volvió con daños</strong><small>Adjunta fotos y describe el daño</small></span></label>' +
+        "</div></fieldset>" +
+      '<div id="damage-fields" hidden>' +
+        '<div class="form-field"><label for="damage-description">Describe el daño</label><textarea id="damage-description" rows="3" aria-describedby="damage-description-error"></textarea><p class="field__error" id="damage-description-error"></p></div>' +
+        '<div class="form-field"><label for="damage-photo">Fotos del daño</label><input id="damage-photo" type="file" accept="image/*" multiple aria-describedby="damage-photo-error"><p class="field__error" id="damage-photo-error"></p></div>' +
+      "</div>";
+    $$("input[name='ret-condition']").forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        $("#damage-fields").hidden = $("input[name='ret-condition']:checked").value !== "damaged";
+      });
+    });
+    openDialog("return-dialog");
+  }
+
+  function submitReturn(event) {
+    event.preventDefault();
+    const deal = state.deals.find(function (d) { return d.id === returningId; });
+    const item = material(deal.materialId);
+    const other = users[deal.otherId];
+    const damaged = $("input[name='ret-condition']:checked").value === "damaged";
+    if (damaged) {
+      const okText = setFieldError("damage-description", $("#damage-description").value.trim().length >= 10 ? "" : "Describe el daño (mínimo 10 caracteres).");
+      const okPhoto = setFieldError("damage-photo", $("#damage-photo").files.length ? "" : "Adjunta al menos una foto del daño.");
+      if (!okText || !okPhoto) {
+        return;
+      }
+      other.incidents += 1;
+      item.condition = "Con desgaste";
+    }
+    state.deals = state.deals.filter(function (d) { return d !== deal; });
+    const historyEntry = { id: uid("h"), title: item.title, role: "lender", otherId: deal.otherId, closedAt: new Date(), rating: 0, condition: damaged ? "Con daños reportados" : "Buen estado" };
+    state.history.unshift(historyEntry);
+    item.status = "available";
+    other.deals += 1;
+    if (!damaged) {
+      other.onTime += 1;
+    }
+    closeDialog("return-dialog");
+    showToast(damaged ? "Registramos el daño con tus fotos. El trato se cerró y el caso pasa a moderación." : "Devolución confirmada. “" + item.title + "” vuelve a estar disponible.");
+    renderLoans();
+    renderCatalog();
+    renderPublications();
+    openRate(deal.otherId, item.title, historyEntry.id);
+  }
+
+  function setupLoans() {
+    $(".tabs").addEventListener("click", function (event) {
+      const tab = event.target.closest("[role='tab']");
+      if (tab) {
+        selectTab(tab);
+      }
+    });
+    $(".tabs").addEventListener("keydown", function (event) {
+      const tabs = $$(".tabs__tab");
+      const index = tabs.indexOf(document.activeElement);
+      if (index === -1) {
+        return;
+      }
+      let next = null;
+      if (event.key === "ArrowRight") {
+        next = tabs[(index + 1) % tabs.length];
+      } else if (event.key === "ArrowLeft") {
+        next = tabs[(index - 1 + tabs.length) % tabs.length];
+      } else if (event.key === "Home") {
+        next = tabs[0];
+      } else if (event.key === "End") {
+        next = tabs[tabs.length - 1];
+      }
+      if (next) {
+        event.preventDefault();
+        selectTab(next);
+        next.focus();
+      }
+    });
+
+    $("#view-loans").addEventListener("click", function (event) {
+      const t = event.target;
+      const deal = t.closest("[data-deal]");
+      const requestDeal = t.closest("[data-request-deal]");
+      const deliver = t.closest("[data-deliver]");
+      const ret = t.closest("[data-return]");
+      const accept = t.closest("[data-accept]");
+      const reject = t.closest("[data-reject]");
+      const cancel = t.closest("[data-cancel-request]");
+      const chatUser = t.closest("[data-chat-user]");
+      const extend = t.closest("[data-extend]");
+      if (deal) {
+        const d = state.deals.find(function (x) { return x.id === deal.dataset.deal; });
+        openDealDetail({ materialId: d.materialId, otherId: d.otherId, role: d.role, point: d.point, slot: d.slot, code: d.status === "pending-delivery" ? d.code : null, dueDate: d.dueDate });
+      } else if (requestDeal) {
+        const r = state.requestsSent.find(function (x) { return x.id === requestDeal.dataset.requestDeal; });
+        openDealDetail({ materialId: r.materialId, otherId: material(r.materialId).ownerId, role: "borrower", point: r.point, slot: r.slot, code: r.code, dueDate: material(r.materialId).modality === "loan" ? r.to : null });
+      } else if (deliver) {
+        openDelivery(deliver.dataset.deliver);
+      } else if (ret) {
+        openReturn(ret.dataset.return);
+      } else if (accept) {
+        openAccept(accept.dataset.accept);
+      } else if (reject) {
+        const r = state.requestsReceived.find(function (x) { return x.id === reject.dataset.reject; });
+        confirmDialog("¿Rechazar solicitud?", "Avisaremos a " + users[r.requesterId].name + " que no puedes prestarle “" + material(r.materialId).title + "”.", "Rechazar", function () {
+          r.status = "rejected";
+          showToast("Rechazaste la solicitud. Notificamos a " + users[r.requesterId].name + ".");
+          renderLoans();
+        });
+      } else if (cancel) {
+        const r = state.requestsSent.find(function (x) { return x.id === cancel.dataset.cancelRequest; });
+        const item = material(r.materialId);
+        confirmDialog("¿Cancelar solicitud?", "Anularemos tu solicitud de “" + item.title + "” y avisaremos a " + users[item.ownerId].name + ". El material volverá a estar disponible.", "Cancelar solicitud", function () {
+          if (r.status === "accepted") {
+            item.status = "available";
+          }
+          r.status = "cancelled";
+          showToast("Cancelaste la solicitud de “" + item.title + "”.");
+          renderLoans();
+          renderCatalog();
+        });
+      } else if (chatUser) {
+        startConversation(chatUser.dataset.material, chatUser.dataset.chatUser);
+      } else if (extend) {
+        const d = state.deals.find(function (x) { return x.id === extend.dataset.extend; });
+        startConversation(d.materialId, d.otherId, "Hola, ¿podría quedarme con “" + material(d.materialId).title + "” unos días más? Te lo devuelvo en el mismo punto.");
+      }
+    });
+
+    $("#accept-form").addEventListener("submit", submitAccept);
+    $("#delivery-form").addEventListener("submit", submitDelivery);
+    $("#return-form").addEventListener("submit", submitReturn);
+  }
+
+  /* ======================================================================
      Init
      ====================================================================== */
   function init() {
@@ -1047,10 +1496,12 @@
 
     setupCatalog();
     setupPublish();
+    setupLoans();
 
     renderFilterOptions();
     renderCatalog();
     renderNotifications();
+    renderLoans();
     renderPublications();
     
     window.addEventListener("hashchange", route);
