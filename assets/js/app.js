@@ -717,9 +717,297 @@
   }
 
   /* ======================================================================
-     6. V2 Detail (HU012, HU022, HU038, HU044, HU050) + V3 Request (HU014, HU016, HU017)
+     7. V4 Publish (HU006, HU007, HU008, HU009)
      ====================================================================== */
+  const COURSES = {};
+  DATA.materials.forEach(function (item) {
+    COURSES[item.course] = { code: item.code, faculty: item.faculty };
+  });
 
+  function setFieldError(inputId, message) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(inputId + "-error");
+    if (input) {
+      input.setAttribute("aria-invalid", message ? "true" : "false");
+    }
+    if (error) {
+      error.textContent = message || "";
+    }
+    return !message;
+  }
+
+  function validateStep(step) {
+    let ok = true;
+    if (step === 1) {
+      ok = setFieldError("pub-photo", state.publishPhoto ? "" : "Sube al menos una foto: sirve como referencia en la devolución.") && ok;
+      ok = setFieldError("pub-title", $("#pub-title").value.trim().length >= 3 ? "" : "Escribe el nombre del material (mínimo 3 caracteres).") && ok;
+      ok = setFieldError("pub-course", $("#pub-course").value.trim() ? "" : "Indica el curso para que te encuentren al buscarlo.") && ok;
+    }
+    if (step === 2) {
+      const modality = $("input[name='modality']:checked").value;
+      if (modality === "exchange") {
+        ok = setFieldError("pub-wanted", $("#pub-wanted").value.trim() ? "" : "Cuéntanos qué material te gustaría recibir.") && ok;
+      }
+    }
+    if (step === 3) {
+      const points = $$("#pub-points input:checked");
+      $("#pub-points-error").textContent = points.length ? "" : "Elige al menos un punto seguro de entrega.";
+      ok = points.length > 0 && ok;
+      const until = $("#pub-until").value;
+      ok = setFieldError("pub-until", until && fromInputDate(until) > NOW ? "" : "Elige una fecha futura.") && ok;
+    }
+    if (!ok) {
+      const firstError = $(".publish-step:not([hidden]) [aria-invalid='true']") || $(".publish-step:not([hidden]) input");
+      if (firstError && firstError.type !== "file") {
+        firstError.focus();
+      } else {
+        $("label[for='pub-photo']").scrollIntoView({ block: "center" });
+      }
+    }
+    return ok;
+  }
+
+  function renderPublishStep() {
+    const step = state.publishStep;
+    $$(".publish-step").forEach(function (fieldset) {
+      fieldset.hidden = Number(fieldset.dataset.step) !== step;
+    });
+    $$("[data-step-indicator]").forEach(function (indicator) {
+      const n = Number(indicator.dataset.stepIndicator);
+      indicator.classList.toggle("stepper__step--done", n < step);
+      indicator.classList.toggle("stepper__step--current", n === step);
+      if (n === step) {
+        indicator.setAttribute("aria-current", "step");
+      } else {
+        indicator.removeAttribute("aria-current");
+      }
+    });
+    $("#pub-back").style.visibility = step === 1 ? "hidden" : "visible";
+    $("#pub-next").hidden = step === 3;
+    $("#pub-submit").hidden = step !== 3;
+    if (step === 3) {
+      renderPublishSummary();
+    }
+  }
+
+  function renderPublishPoints() {
+    $("#pub-points").innerHTML = DATA.safePoints[state.campus].map(function (point, index) {
+      return '<label class="check-row"><input type="checkbox" value="' + escapeHtml(point) + '"' + (index === 0 ? " checked" : "") + "><span><strong>" + escapeHtml(point) + "</strong><small>Punto señalizado · Sede " + escapeHtml(state.campus) + "</small></span></label>";
+    }).join("");
+  }
+
+  function renderPublishSummary() {
+    const modality = $("input[name='modality']:checked").value;
+    const condition = $("input[name='condition']:checked").value;
+    const extra = modality === "loan" ? "Plazo máximo: " + $("#pub-max-days").value + " días" : modality === "exchange" ? "A cambio de: " + $("#pub-wanted").value : "Sin devolución";
+    $("#pub-summary").innerHTML = "<strong>Resumen de tu publicación</strong><dl>" +
+      "<dt>Material</dt><dd>" + escapeHtml($("#pub-title").value) + "</dd>" +
+      "<dt>Curso</dt><dd>" + escapeHtml($("#pub-course").value) + "</dd>" +
+      "<dt>Modalidad</dt><dd>" + DATA.modalityLabel[modality] + " · " + escapeHtml(extra) + "</dd>" +
+      "<dt>Estado</dt><dd>" + escapeHtml(condition) + "</dd></dl>";
+  }
+
+  function updateModalityFields() {
+    const modality = $("input[name='modality']:checked").value;
+    $$("[data-modality-field]").forEach(function (block) {
+      block.hidden = block.dataset.modalityField !== modality;
+    });
+  }
+
+  function resetPublishForm() {
+    $("#publish-form").reset();
+    state.publishPhoto = null;
+    $("#pub-photo-preview").hidden = true;
+    $("#pub-photo-placeholder").hidden = false;
+    $$("#publish-form [aria-invalid]").forEach(function (input) {
+      input.setAttribute("aria-invalid", "false");
+    });
+    $$("#publish-form .field__error").forEach(function (error) {
+      error.textContent = "";
+    });
+    state.publishStep = 1;
+    $("#pub-until").value = toInputDate(addDays(NOW, 45));
+    renderPublishPoints();
+    updateModalityFields();
+    renderPublishStep();
+  }
+
+  function submitPublication(event) {
+    event.preventDefault();
+    if (!validateStep(3)) {
+      return;
+    }
+    const course = $("#pub-course").value.trim();
+    const info = COURSES[course] || { code: "—", faculty: "General" };
+    const modality = $("input[name='modality']:checked").value;
+    const points = $$("#pub-points input:checked").map(function (input) {
+      return input.value;
+    });
+    const item = {
+      id: uid("m"), title: $("#pub-title").value.trim(), course: course, code: info.code, faculty: info.faculty,
+      category: $("#pub-category").value, campus: state.campus, point: points[0], points: points,
+      status: "available", modality: modality, condition: $("input[name='condition']:checked").value,
+      ownerId: "me", maxDays: modality === "loan" ? Number($("#pub-max-days").value) : 0,
+      wanted: $("#pub-wanted").value.trim(), until: formatShortDate(fromInputDate($("#pub-until").value)),
+      description: $("#pub-description").value.trim() || "Sin descripción adicional.", photo: state.publishPhoto
+    };
+    state.materials.unshift(item);
+    showToast("¡Publicado! “" + item.title + "” ya aparece en el catálogo como disponible.");
+    addNotification("Publicaste “" + item.title + "” (" + DATA.modalityLabel[modality] + ").", "ok", "check");
+    resetPublishForm();
+    renderFilterOptions();
+    renderCatalog();
+    renderPublications();
+    $("#pub-list").firstElementChild.querySelector("h3").setAttribute("tabindex", "-1");
+    $("#pub-list").firstElementChild.querySelector("h3").focus();
+  }
+
+  function hasPendingDeal(item) {
+    return item.status === "reserved" || item.status === "on-loan";
+  }
+
+  function publicationStatus(item) {
+    const map = {
+      available: ["Activa", "ok"], reserved: ["Entrega pendiente", "warn"], "on-loan": ["Prestado", "info"],
+      paused: ["Pausada", "mute"], withdrawn: ["Retirada", "mute"]
+    };
+    return '<span class="badge badge--' + map[item.status][1] + '">' + map[item.status][0] + "</span>";
+  }
+
+  function renderPublications() {
+    const mine = state.materials.filter(function (item) {
+      return item.ownerId === "me";
+    }).sort(function (a, b) {
+      return (a.status === "withdrawn") - (b.status === "withdrawn");
+    });
+    $("#pub-list").innerHTML = mine.map(function (item) {
+      const withdrawn = item.status === "withdrawn";
+      return '<li class="pub-item">' +
+        '<div class="pub-item__head"><span class="pub-item__thumb">' + materialMedia(item) + "</span>" +
+          "<div><h3 class=\"pub-item__title\">" + escapeHtml(item.title) + "</h3>" +
+          '<div class="pub-item__meta">' + publicationStatus(item) + '<span class="badge badge--info">' + DATA.modalityLabel[item.modality] + "</span></div></div></div>" +
+        (withdrawn ? "" :
+          '<div class="pub-item__actions">' +
+            '<button class="pill-btn" type="button" data-pub-action="edit" data-id="' + item.id + '">' + icon("edit") + "Editar</button>" +
+            '<button class="pill-btn" type="button" data-pub-action="pause" data-id="' + item.id + '">' + icon(item.status === "paused" ? "play" : "pause") + (item.status === "paused" ? "Reanudar" : "Pausar") + "</button>" +
+            '<button class="pill-btn pill-btn--danger" type="button" data-pub-action="withdraw" data-id="' + item.id + '">' + icon("trash") + "Retirar</button>" +
+          "</div>") +
+        "</li>";
+    }).join("");
+  }
+
+  let editingId = null;
+
+  function openEdit(item) {
+    editingId = item.id;
+    $("#edit-body").innerHTML =
+      '<div class="form-field"><label for="edit-title-input">Nombre del material</label><input id="edit-title-input" type="text" value="' + escapeHtml(item.title) + '" required aria-describedby="edit-title-input-error"><p class="field__error" id="edit-title-input-error"></p></div>' +
+      '<div class="form-field"><label for="edit-description">Descripción</label><textarea id="edit-description" rows="3">' + escapeHtml(item.description) + "</textarea></div>" +
+      (item.modality === "loan"
+        ? '<div class="form-field"><label for="edit-days">Plazo máximo de préstamo</label><select id="edit-days" class="input-select">' +
+          [15, 30, 45, 60].map(function (days) { return "<option value=\"" + days + "\"" + (days === item.maxDays ? " selected" : "") + ">" + days + " días</option>"; }).join("") + "</select></div>"
+        : "") +
+      '<div class="form-field"><label for="edit-condition">Estado</label><select id="edit-condition" class="input-select">' +
+        ["Nuevo", "Buen estado", "Con desgaste"].map(function (c) { return "<option" + (c === item.condition ? " selected" : "") + ">" + c + "</option>"; }).join("") + "</select></div>";
+    openDialog("edit-dialog");
+  }
+
+  function setupPublish() {
+    $("#course-options").innerHTML = Object.keys(COURSES).map(function (course) {
+      return '<option value="' + escapeHtml(course) + '">' + COURSES[course].code + "</option>";
+    }).join("");
+
+    $("#pub-photo").addEventListener("change", function () {
+      const file = this.files && this.files[0];
+      if (!file) {
+        return;
+      }
+      if (!/^image\//.test(file.type)) {
+        setFieldError("pub-photo", "El archivo debe ser una imagen (JPG o PNG).");
+        return;
+      }
+      if (state.publishPhoto) {
+        URL.revokeObjectURL(state.publishPhoto);
+      }
+      state.publishPhoto = URL.createObjectURL(file);
+      const preview = $("#pub-photo-preview");
+      preview.src = state.publishPhoto;
+      preview.hidden = false;
+      $("#pub-photo-placeholder").hidden = true;
+      setFieldError("pub-photo", "");
+    });
+
+    $$("input[name='modality']").forEach(function (radio) {
+      radio.addEventListener("change", updateModalityFields);
+    });
+    $("#pub-next").addEventListener("click", function () {
+      if (validateStep(state.publishStep)) {
+        state.publishStep += 1;
+        renderPublishStep();
+        $(".publish-step:not([hidden]) legend").scrollIntoView({ block: "nearest" });
+      }
+    });
+    $("#pub-back").addEventListener("click", function () {
+      state.publishStep = Math.max(1, state.publishStep - 1);
+      renderPublishStep();
+    });
+    $("#publish-form").addEventListener("submit", submitPublication);
+
+    $("#pub-list").addEventListener("click", function (event) {
+      const button = event.target.closest("[data-pub-action]");
+      if (!button) {
+        return;
+      }
+      const item = material(button.dataset.id);
+      const action = button.dataset.pubAction;
+      if (hasPendingDeal(item)) {
+        showToast("No puedes " + (action === "edit" ? "editar" : action === "pause" ? "pausar" : "retirar") + " “" + item.title + "”: tiene una entrega o devolución pendiente.", "error");
+        return;
+      }
+      if (action === "edit") {
+        openEdit(item);
+      } else if (action === "pause") {
+        item.status = item.status === "paused" ? "available" : "paused";
+        showToast(item.status === "paused" ? "Pausaste “" + item.title + "”. Ya no aparece en el catálogo." : "“" + item.title + "” vuelve a estar disponible en el catálogo.");
+        renderPublications();
+        renderCatalog();
+      } else if (action === "withdraw") {
+        confirmDialog("¿Retirar publicación?", "“" + item.title + "” dejará de aparecer en el catálogo. Quedará en tu historial como retirada.", "Retirar", function () {
+          item.status = "withdrawn";
+          state.requestsReceived.forEach(function (r) {
+            if (r.materialId === item.id && r.status === "pending") {
+              r.status = "rejected";
+            }
+          });
+          showToast("Retiraste “" + item.title + "” del catálogo.");
+          renderPublications();
+          renderCatalog();
+        });
+      }
+    });
+
+    $("#edit-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      const item = material(editingId);
+      const title = $("#edit-title-input").value.trim();
+      if (!setFieldError("edit-title-input", title.length >= 3 ? "" : "Escribe un nombre de al menos 3 caracteres.")) {
+        $("#edit-title-input").focus();
+        return;
+      }
+      item.title = title;
+      item.description = $("#edit-description").value.trim();
+      item.condition = $("#edit-condition").value;
+      if ($("#edit-days")) {
+        item.maxDays = Number($("#edit-days").value);
+      }
+      closeDialog("edit-dialog");
+      showToast("Guardamos los cambios de “" + item.title + "”.");
+      renderPublications();
+      renderCatalog();
+    });
+
+    resetPublishForm();
+  }
 
   /* ======================================================================
      Init
@@ -758,10 +1046,13 @@
     });
 
     setupCatalog();
+    setupPublish();
 
     renderFilterOptions();
     renderCatalog();
     renderNotifications();
+    renderPublications();
+    
     window.addEventListener("hashchange", route);
     route();
   }
